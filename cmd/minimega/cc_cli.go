@@ -123,6 +123,7 @@ For more documentation, see the article "Command and Control API Tutorial".`,
 		Patterns: []string{
 			"cc",
 			"cc <listen,> <port>",
+			"cc <auto-update,> [true,false]",
 			"cc <clients,>",
 			"cc <filter,> [filter]...",
 			"cc <commands,>",
@@ -214,6 +215,7 @@ var ccCliSubHandlers = map[string]wrappedCLIFunc{
 	"send":            cliCCFileSend,
 	"tunnel":          cliCCTunnel,
 	"listen":          cliCCListen,
+	"auto-update":     cliCCAutoUpdate,
 	"test-conn":       cliCCTestConn,
 }
 
@@ -238,6 +240,16 @@ func cliCC(ns *Namespace, c *minicli.Command, resp *minicli.Response) error {
 		},
 	}
 
+	return nil
+}
+
+func cliCCAutoUpdate(ns *Namespace, c *minicli.Command, resp *minicli.Response) error {
+	if c.BoolArgs["true"] || c.BoolArgs["false"] {
+		ns.ccServer.SetAutoUpdate(c.BoolArgs["true"])
+		return nil
+	}
+
+	resp.Response = strconv.FormatBool(ns.ccServer.AutoUpdate())
 	return nil
 }
 
