@@ -50,7 +50,7 @@ func (items inputItems) String() string {
 	s2 := make([]string, len(items))
 
 	for i, v := range items {
-		if strings.IndexFunc(v.Value, unicode.IsSpace) > -1 {
+		if needsQuote(v.Value) {
 			s2[i] = strconv.Quote(v.Value)
 		} else {
 			s2[i] = v.Value
@@ -58,6 +58,15 @@ func (items inputItems) String() string {
 	}
 
 	return strings.Join(s2, " ")
+}
+
+// needsQuote reports whether s must be quoted to lex as the same single item:
+// it is empty or has a space, a quote, a backslash, or a comment leader.
+func needsQuote(s string) bool {
+	return s == "" ||
+		strings.IndexFunc(s, unicode.IsSpace) > -1 ||
+		strings.ContainsAny(s, `'`+CommentLeader) ||
+		strconv.Quote(s) != `"`+s+`"`
 }
 
 func lexInput(input string) (*Input, error) {
