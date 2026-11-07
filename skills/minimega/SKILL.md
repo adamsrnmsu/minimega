@@ -214,6 +214,13 @@ Consult command help before mutating state; subcommand requirements evolve.
   captures, VLAN aliases, and taps.
 - **Most functional operations alter the host.** Use an isolated Linux system
   for privileged tests involving KVM, Open vSwitch, taps, mounts, or cgroups.
+- **Packet captures have IDs, states, and counters.** `capture` lists the ID,
+  state (`running`, `failed`, or `full`), packets, kernel drops, and file size
+  of each pcap capture, with `path` as the last column. A failed or full capture
+  stays in the list until `capture pcap delete id <id>`. `clear capture pcap`
+  stops only pcap captures. Give `snaplen=`, `filter=`, `maxsize=`, and (VM
+  only) `direction=` after the file name instead of changing the namespace
+  settings around one capture.
 - **Do not parse default tables by column position.** Select columns explicitly
   because command output is also consumed by phēnix, FIREWHEEL, and scripts.
 
