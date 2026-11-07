@@ -232,10 +232,13 @@ func cliNamespaceAddHost(ns *Namespace, c *minicli.Command, resp *minicli.Respon
 	for i := range hosts {
 		// Add all the peers if we see a wildcard
 		if hosts[i] == Wildcard {
+			var added []string
 			for peer := range peers {
 				ns.Hosts[peer] = true
+				added = append(added, peer)
 			}
 
+			nsCaptureAddHosts(ns, added)
 			return nil
 		}
 
@@ -255,6 +258,7 @@ func cliNamespaceAddHost(ns *Namespace, c *minicli.Command, resp *minicli.Respon
 		ns.Hosts[host] = true
 	}
 
+	nsCaptureAddHosts(ns, hosts)
 	return nil
 }
 
