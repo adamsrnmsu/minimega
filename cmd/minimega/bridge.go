@@ -101,7 +101,7 @@ func bridgeInfo() string {
 }
 
 // hostTapCreate creates a host tap based on the supplied arguments.
-func hostTapCreate(b, tap string, v int) (string, error) {
+func hostTapCreate(ns, b, tap string, v int) (string, error) {
 	if b == "" {
 		b = DefaultBridge
 	}
@@ -121,6 +121,7 @@ func hostTapCreate(b, tap string, v int) (string, error) {
 
 	tap, err = br.CreateHostTap(tap, v)
 	if err == nil {
+		br.SetTapOwner(tap, ns, "")
 		mustWrite(filepath.Join(*f_base, "taps"), hostTapInfo())
 	}
 
@@ -230,6 +231,9 @@ func recoverHostTaps() error {
 			}
 
 			br.RecoverTap(tap, "", vlan, true)
+			if a := vlans.ParseAlias("", alias); a.Namespace != "" {
+				br.SetTapOwner(tap, a.Namespace, "")
+			}
 		}
 
 		if err := scanner.Err(); err != nil {
