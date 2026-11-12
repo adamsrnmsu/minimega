@@ -127,3 +127,5 @@ jobs:
     with:
       image: ${{ needs.push-to-ghcr.outputs.minimega_image }}
       image-artifact: ${{ needs.push-to-ghcr.outputs.minimega_artifact }}
+      web-image: ${{ needs.push-to-ghcr.outputs.miniweb_image }}
+      web-image-artifact: ${{ needs.push-to-ghcr.outputs.miniweb_artifact }}

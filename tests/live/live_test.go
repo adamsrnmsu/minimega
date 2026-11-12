@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/net/websocket"
 )
 
 func TestMain(m *testing.M) {
@@ -54,6 +56,7 @@ func TestLive(t *testing.T) {
 		{"FileList", testFileList, inv},
 		{"Disk", testDisk, inv},
 		{"Miniweb", testMiniweb, inv},
+		{"MiniwebConsole", testMiniwebConsole, inv},
 
 		// guests come up
 		{"CCClients", testCCClients, inv},
@@ -417,6 +420,60 @@ func testMiniweb(t *testing.T) {
 			t.Errorf("/vms/info.json missing %v", s.Name)
 		}
 	}
+}
+
+// testMiniwebConsole drives the web console that docker/README.md describes:
+// miniweb spawns "minimega -attach", which talks to the minimega container
+// over the shared command socket. run.sh enables it for a separate miniweb
+// container with LIVE_MINIWEB_CONSOLE=1.
+func testMiniwebConsole(t *testing.T) {
+	if os.Getenv("LIVE_MINIWEB_CONSOLE") != "1" {
+		t.Skip("LIVE_MINIWEB_CONSOLE not set")
+	}
+
+	resp, err := http.Get(miniwebURL + "/console")
+	if err != nil {
+		t.Fatalf("GET /console: %v", err)
+	}
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /console: %v", resp.Status)
+	}
+	pid, err := consolePID(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ws, err := websocket.Dial(fmt.Sprintf("ws://%v/console/%v/ws", strings.TrimPrefix(miniwebURL, "http://"), pid), "", miniwebURL)
+	if err != nil {
+		t.Fatalf("console websocket: %v", err)
+	}
+	defer ws.Close()
+
+	// like the console page, set a terminal size: with none, minimega sends
+	// every reply to a pager
+	if r, err := http.Get(fmt.Sprintf("%v/console/%v/size?rows=50&cols=200", miniwebURL, pid)); err != nil {
+		t.Fatalf("console size: %v", err)
+	} else {
+		r.Body.Close()
+	}
+
+	// the VM names only appear in the reply, not in the echoed command
+	if _, err := ws.Write([]byte("namespace " + namespace + " .columns name vm info\r")); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	buf := make([]byte, 4096)
+	eventually(t, 30*time.Second, time.Second, func() error {
+		ws.SetReadDeadline(time.Now().Add(time.Second))
+		n, _ := ws.Read(buf)
+		out.Write(buf[:n])
+		if !strings.Contains(out.String(), "rtr-cd") {
+			return fmt.Errorf("console output so far: %q", out.String())
+		}
+		return nil
+	})
 }
 
 // --- guests come up ----------------------------------------------------------

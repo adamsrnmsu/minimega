@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -83,4 +84,16 @@ func readResponse(path string) (ccResult, error) {
 		}
 	}
 	return r, nil
+}
+
+var consolePIDRe = regexp.MustCompile(`var pid = "(\d+)"`)
+
+// consolePID returns the process id of the console miniweb spawned, which its
+// /console page embeds for the page websocket URLs.
+func consolePID(page []byte) (int, error) {
+	m := consolePIDRe.FindSubmatch(page)
+	if m == nil {
+		return 0, errors.New("no console pid in page")
+	}
+	return strconv.Atoi(string(m[1]))
 }
