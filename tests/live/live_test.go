@@ -84,6 +84,7 @@ func TestLive(t *testing.T) {
 		{"HTTPProtonuke", testHTTPProtonuke, network},
 		{"Firewall", testFirewall, network},
 		{"HostTap", testHostTap, network},
+		{"CCRTunnel", testCCRTunnel, network},
 		{"QoS", testQoS, network},
 		{"CapturePcap", testCapturePcap, network},
 
@@ -830,6 +831,35 @@ func testHostTap(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// testCCRTunnel opens a reverse tunnel: host-a3 listens on 4444 and the
+// minimega host connects the traffic on to protonuke on host-c1.
+func testCCRTunnel(t *testing.T) {
+	if out, err := inContainer(t, "ip", "route", "replace", "10.10.0.0/16", "via", "10.10.1.1", "dev", "live-mgmt"); err != nil {
+		t.Fatalf("add route: %v: %s", err, out)
+	}
+	defer inContainer(t, "ip", "route", "del", "10.10.0.0/16")
+
+	mustRun(t, "cc filter name=host-a3")
+	_, err := client.run("cc rtunnel 4444 10.10.3.11 80")
+	client.run("clear cc filter")
+	if err != nil {
+		t.Fatalf("cc rtunnel: %v", err)
+	}
+
+	// traffic into the guest's port comes out of web.live
+	ccEventually(t, "host-a3", "timeout 10 wget -q -O /tmp/rtunnel.html http://127.0.0.1:4444/ && test -s /tmp/rtunnel.html", time.Minute)
+
+	found := false
+	for _, r := range mustTable(t, "cc rtunnel list host-a3") {
+		if r["vm"] == "host-a3" && r["src port"] == "4444" && r["dst"] == "10.10.3.11" && r["dst port"] == "80" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("cc rtunnel list host-a3 does not show 4444 -> 10.10.3.11:80")
+	}
 }
 
 var rttRe = regexp.MustCompile(`= [\d.]+/([\d.]+)/`)
