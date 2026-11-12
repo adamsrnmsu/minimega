@@ -34,7 +34,7 @@ shell sleep 30
 
 # put protonuke where cc send can find it, then send it to every client;
 # it lands in /tmp/miniccc/files on the guests and runs by name
-shell cp /usr/bin/protonuke /tmp/minimega/files/protonuke
+shell sh -c "cp /usr/bin/protonuke /tmp/minimega/files/protonuke 2>/dev/null || cp /opt/minimega/bin/protonuke /tmp/minimega/files/protonuke"
 cc send protonuke
 
 # serve HTTP, HTTPS and SMTP on vm_left (sshd already owns port 22)
@@ -43,7 +43,7 @@ cc background protonuke -serve -http -https -smtp
 
 # fetch one page from vm_right to prove the path through the router works
 cc filter name=vm_right
-cc exec curl -s http://10.0.0.10/
+cc exec curl -sS --retry 5 --retry-connrefused 10.0.0.10/
 shell sleep 10
 cc responses 6
 
