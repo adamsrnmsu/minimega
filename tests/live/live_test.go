@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"regexp"
@@ -84,6 +85,7 @@ func TestLive(t *testing.T) {
 		{"HTTPProtonuke", testHTTPProtonuke, network},
 		{"Firewall", testFirewall, network},
 		{"HostTap", testHostTap, network},
+		{"CCRTunnel", testCCRTunnel, network},
 		{"QoS", testQoS, network},
 		{"CapturePcap", testCapturePcap, network},
 
@@ -830,6 +832,70 @@ func testHostTap(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// testCCRTunnel opens reverse tunnels: a guest listens on 4444 and the
+// minimega host connects the traffic on to protonuke on host-c1.
+func testCCRTunnel(t *testing.T) {
+	if out, err := inContainer(t, "ip", "route", "replace", "10.10.0.0/16", "via", "10.10.1.1", "dev", "live-mgmt"); err != nil {
+		t.Fatalf("add route: %v: %s", err, out)
+	}
+	defer inContainer(t, "ip", "route", "del", "10.10.0.0/16")
+
+	const fetch = "timeout 10 wget -q -O /tmp/rtunnel.html http://127.0.0.1:4444/ && test -s /tmp/rtunnel.html"
+	const tunnel = " 4444->10.10.3.11:80"
+
+	if err := rtunnel("name=host-a3", "4444 10.10.3.11 80"); err != nil {
+		t.Fatalf("cc rtunnel: %v", err)
+	}
+	ccEventually(t, "host-a3", fetch, time.Minute)
+	if got := rtunnels(t, "cc rtunnel list host-a3"); !maps.Equal(got, map[string]bool{"host-a3" + tunnel: true}) {
+		t.Errorf("cc rtunnel list host-a3 = %v", got)
+	}
+
+	// no client matches: the command fails
+	if err := rtunnel("os=plan9", "4445 10.10.3.11 80"); err == nil || !strings.Contains(err.Error(), "no clients match filter: os=plan9") {
+		t.Errorf("cc rtunnel with no matching client: err = %v", err)
+	}
+
+	// A runtime vm tag selects two clients. host-a3 already listens on 4444,
+	// so only host-a3 fails, and host-a2 still opens its tunnel.
+	for _, vm := range []string{"host-a2", "host-a3"} {
+		mustRun(t, "vm tag "+vm+" rtunnel yes")
+		defer client.run("clear vm tag " + vm + " rtunnel")
+	}
+	vms := vmInfo(t)
+	err := rtunnel("rtunnel=yes", "4444 10.10.3.11 80")
+	if err == nil || !strings.Contains(err.Error(), vms["host-a3"]["uuid"]) || strings.Contains(err.Error(), vms["host-a2"]["uuid"]) {
+		t.Errorf("cc rtunnel on host-a2 and host-a3: err = %v, want an error naming host-a3 only", err)
+	}
+	ccEventually(t, "host-a2", fetch, time.Minute)
+
+	want := map[string]bool{"host-a2" + tunnel: true, "host-a3" + tunnel: true}
+	if got := rtunnels(t, "cc rtunnel list"); !maps.Equal(got, want) {
+		t.Errorf("cc rtunnel list = %v, want %v", got, want)
+	}
+}
+
+// rtunnel runs "cc rtunnel args" with the cc filter set to filter.
+func rtunnel(filter, args string) error {
+	if _, err := client.run("cc filter " + filter); err != nil {
+		return err
+	}
+	defer client.run("clear cc filter")
+
+	_, err := client.run("cc rtunnel " + args)
+	return err
+}
+
+// rtunnels returns the "vm src->dst:port" entries that cmd lists.
+func rtunnels(t *testing.T, cmd string) map[string]bool {
+	t.Helper()
+	got := map[string]bool{}
+	for _, r := range mustTable(t, cmd) {
+		got[fmt.Sprintf("%v %v->%v:%v", r["vm"], r["src port"], r["dst"], r["dst port"])] = true
+	}
+	return got
 }
 
 var rttRe = regexp.MustCompile(`= [\d.]+/([\d.]+)/`)
