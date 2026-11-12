@@ -61,14 +61,16 @@ depth.
 ## Describe and launch the clients
 
 `vm config` holds the description that the next `vm launch` will copy. Point
-it at the client image, give the VM 2 GB of memory (the default, but the
-course says so explicitly), and put its single interface on a network named
-`net_left`:
+it at the client image, give the VM 3 GB of memory, and put its single
+interface on a network named `net_left`. The default is 2 GB, but these
+images unpack to about 1 GB into a RAM-backed filesystem that is capped at
+half of the guest's memory, so a 2 GB guest panics at boot with `VFS: Unable
+to mount root fs`:
 
 ```minimega
 minimega$ vm config kernel miniccc.kernel
 minimega$ vm config initrd miniccc.initrd
-minimega$ vm config memory 2048
+minimega$ vm config memory 3072
 minimega$ vm config networks net_left
 minimega$ vm launch kvm vm_left
 ```
@@ -301,7 +303,7 @@ router's. Print it and see what minimega actually recorded:
 ```minimega
 minimega$ vm config
 VM configuration:
-Memory:           2048
+Memory:           3072
 VCPUs:            1
 Networks:         [net_left net_right]
 Bonds:            []

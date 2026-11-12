@@ -97,7 +97,7 @@ dashes included: `vm info` is `mm.vm_info()`, `vm launch kvm <name>` is
 `mm.clear_vm_config()`. Arguments are positional in pattern order, optional
 ones default to `None`, and every value is turned into a string and joined
 with spaces, so you pass exactly what you would type:
-`mm.vm_config_networks("net_left net_right")`, `mm.vm_config_memory(2048)`.
+`mm.vm_config_networks("net_left net_right")`, `mm.vm_config_memory(3072)`.
 `help(minimega)` lists every method with the help text you know from
 `help <command>`, and the
 [Python API reference](../../reference/python.md) is the same listing

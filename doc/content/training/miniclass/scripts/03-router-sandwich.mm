@@ -8,7 +8,7 @@ namespace sandwich
 # the two clients: one description, two launches
 vm config kernel miniccc.kernel
 vm config initrd miniccc.initrd
-vm config memory 2048
+vm config memory 3072
 vm config networks net_left
 vm launch kvm vm_left
 vm config networks net_right

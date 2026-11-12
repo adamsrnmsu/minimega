@@ -13,7 +13,7 @@ shell sleep 2
 # vm_left gets the TPM; vm_right is a plain client
 vm config kernel miniccc.kernel
 vm config initrd miniccc.initrd
-vm config memory 2048
+vm config memory 3072
 vm config networks net_left
 vm config tpm-socket /tmp/minimega/swtpm/vm_left/swtpm-sock
 vm launch kvm vm_left

@@ -27,10 +27,10 @@ def build(mm):
     """Configure and launch the two clients and the router."""
     mm.clear_vm_config()
 
-    # The clients: miniccc image, 2 GB each, one on each network
+    # The clients: miniccc image, 3 GB each, one on each network
     mm.vm_config_kernel("miniccc.kernel")
     mm.vm_config_initrd("miniccc.initrd")
-    mm.vm_config_memory(2048)
+    mm.vm_config_memory(3072)
     mm.vm_config_networks("net_left")
     mm.vm_launch_kvm("vm_left")
     mm.vm_config_networks("net_right")

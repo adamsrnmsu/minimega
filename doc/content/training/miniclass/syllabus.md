@@ -77,8 +77,8 @@ RHEL-family amd64 install, and root.
 
 | Lab | Per student or pair | Notes |
 |---|---|---|
-| A, B, C (day 1) | One host: 4 cores, 8 GB RAM, 20 GB free disk | The sandwich is two 2 GB clients plus the router; leave room for the host. |
-| D (capture) | As above plus 2 GB RAM | The `monitor` VM is a third client image. |
+| A, B, C (day 1) | One host: 4 cores, 12 GB RAM, 20 GB free disk | The sandwich is two 3 GB clients plus the router; leave room for the host. |
+| D (capture) | As above plus 3 GB RAM | The `monitor` VM is a third client image. |
 | E (clusters) | Two hosts per pair, or a shared cluster | Hosts need unique hostnames, IP connectivity on port 9000 TCP and UDP, SSH keys for `deploy`, and either a second NIC on a VLAN-capable switch or plain IP reachability for the VXLAN tunnel. Two nested VMs on one workstation work if both have nested virtualization. |
 | Chapter 17 (containers) | Day-1 host, rebooted with cgroup v1 | `systemd.unified_cgroup_hierarchy=0` (plus `cgroup_enable=memory` on Debian-family) on the kernel command line; a reboot, so decide before class. |
 | Chapter 18 (Android) | Day-1 host plus 15 GB disk for the SDK and 4 GB RAM for the emulator | Avoid nested virtualization for this one; the emulator is slow under it. |

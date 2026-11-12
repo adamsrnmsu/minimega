@@ -24,7 +24,7 @@ vm launch kvm router
 clear vm config schedule
 vm config kernel miniccc.kernel
 vm config initrd miniccc.initrd
-vm config memory 2048
+vm config memory 3072
 vm config networks sandwich,net_left
 vm launch kvm vm_left
 vm config networks sandwich,net_right

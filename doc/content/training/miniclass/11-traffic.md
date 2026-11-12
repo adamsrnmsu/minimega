@@ -24,7 +24,7 @@ minimega$ clear namespace sandwich
 minimega$ namespace sandwich
 minimega[sandwich]$ vm config kernel miniccc.kernel
 minimega[sandwich]$ vm config initrd miniccc.initrd
-minimega[sandwich]$ vm config memory 2048
+minimega[sandwich]$ vm config memory 3072
 minimega[sandwich]$ vm config networks net_left,00:00:00:00:01:01
 minimega[sandwich]$ vm launch kvm vm_left
 minimega[sandwich]$ vm config networks net_right,00:00:00:00:02:01
