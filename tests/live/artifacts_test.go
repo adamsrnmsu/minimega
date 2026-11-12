@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -103,4 +104,22 @@ func fbChunks(path string) (int, error) {
 		}
 		n++
 	}
+}
+
+// kbKeys returns the key presses (not releases) in a keyboard recording as a
+// comma-separated list of key names. Lines look like "<ns>:KeyEvent,true,h".
+func kbKeys(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var keys []string
+	for _, line := range strings.Split(string(b), "\n") {
+		if _, ev, ok := strings.Cut(line, ":"); ok {
+			if k, ok := strings.CutPrefix(ev, "KeyEvent,true,"); ok {
+				keys = append(keys, k)
+			}
+		}
+	}
+	return strings.Join(keys, ","), nil
 }

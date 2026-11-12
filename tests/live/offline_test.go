@@ -179,6 +179,20 @@ func TestDistinctColors(t *testing.T) {
 	}
 }
 
+func TestKBKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.kb")
+	body := "0:PointerEvent,0,1,2\n5:KeyEvent,true,l\n5:KeyEvent,false,l\n9:KeyEvent,true,Return\n9:KeyEvent,false,Return\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := kbKeys(path); err != nil || got != "l,Return" {
+		t.Errorf("kbKeys = %q, %v; want l,Return", got, err)
+	}
+	if _, err := kbKeys(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Error("missing file: want an error")
+	}
+}
+
 func TestFBChunks(t *testing.T) {
 	write := func(chunks ...string) string {
 		path := filepath.Join(t.TempDir(), "x.fb")

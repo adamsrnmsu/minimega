@@ -92,6 +92,7 @@ func TestLive(t *testing.T) {
 		{"Serial", testSerial, inv},
 		{"QMP", testQMP, inv},
 		{"VNCRecord", testVNCRecord, inv},
+		{"VNCType", testVNCType, inv},
 		{"Tags", testTags, cc},
 		{"Top", testTop, inv},
 		{"StopStart", testStopStart, cc},
@@ -964,6 +965,22 @@ func testVNCRecord(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// testVNCType types a string through the VNC shim while a keyboard recording
+// runs: the recording sees the keys only if the typed events reach the shim.
+func testVNCType(t *testing.T) {
+	host, path := artifact(t, "host-a2.kb")
+	mustRun(t, "vnc record kb host-a2 "+path)
+	mustRun(t, "vnc type host-a2 hi")
+	eventually(t, 15*time.Second, time.Second, func() error {
+		if got, err := kbKeys(host); err != nil || got != "h,i" {
+			return fmt.Errorf("keyboard recording has keys %q: %v", got, err)
+		}
+		return nil
+	})
+	mustRun(t, "vnc stop kb host-a2")
+	keep(t, host)
 }
 
 func testTags(t *testing.T) {
