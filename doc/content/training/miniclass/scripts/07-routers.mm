@@ -3,6 +3,7 @@
 # adds router2, net_far and vm_far and runs OSPF between the two routers.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # clients; vm_right gets a fixed MAC so the router can give it a static lease
 vm config kernel miniccc.kernel

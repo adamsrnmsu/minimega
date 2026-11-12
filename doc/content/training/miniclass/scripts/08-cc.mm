@@ -4,6 +4,7 @@
 # /tmp/minimega/files; adjust the path if minimega runs with another -filepath.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 vm config kernel miniccc.kernel
 vm config initrd miniccc.initrd

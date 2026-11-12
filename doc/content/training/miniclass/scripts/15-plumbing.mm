@@ -3,6 +3,7 @@
 # in /tmp/minimega/files. The via expects /opt/minimega/bin/normal.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the sandwich from chapter 3 with fixed client addresses (chapter 11)
 vm config kernel miniccc.kernel

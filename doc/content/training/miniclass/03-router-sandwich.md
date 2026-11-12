@@ -363,7 +363,12 @@ which is how [chapter 4](04-vms.md) launches spares.
 Everything above, as one command file. It starts with
 `clear namespace sandwich` so that it always builds from nothing; that line
 destroys the namespace and everything in it, which is also how you tear the
-sandwich down when you are finished. Run it with `read <path>` at the
+sandwich down when you are finished. The one thing it leaves behind is the
+response files that `cc` wrote under `/tmp/minimega/files/sandwich/`. Command
+ids start again at 1 in a new namespace, so a later `cc responses 4` would
+print the old output of the same id. The scripts that read responses
+therefore follow `namespace sandwich` with `clear cc responses`; do the same
+whenever you rebuild an experiment by hand. Run it with `read <path>` at the
 prompt or `sudo minimega -e read <path>` from a shell.
 
 ```minimega title="03-router-sandwich.mm"

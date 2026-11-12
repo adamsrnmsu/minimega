@@ -3,6 +3,7 @@
 # in /tmp/minimega/files, and protonuke installed on the host.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the sandwich from chapter 3, with fixed MACs and static leases so that
 # vm_left is always 10.0.0.10 and vm_right is always 10.0.1.10

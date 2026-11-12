@@ -4,6 +4,7 @@
 # images and the swtpm package on the host.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # One swtpm instance per VM, started as a host process from minimega
 shell mkdir -p /tmp/minimega/swtpm/vm_left

@@ -22,6 +22,7 @@ that `vm_left` is always `10.0.0.10` and `vm_right` is always `10.0.1.10`:
 ```minimega
 minimega$ clear namespace sandwich
 minimega$ namespace sandwich
+minimega[sandwich]$ clear cc responses
 minimega[sandwich]$ vm config kernel miniccc.kernel
 minimega[sandwich]$ vm config initrd miniccc.initrd
 minimega[sandwich]$ vm config memory 3072

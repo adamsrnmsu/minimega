@@ -3,6 +3,7 @@
 # host a tap into net_left, unplugs and replugs vm_right, and tries qos.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the two clients
 vm config kernel miniccc.kernel

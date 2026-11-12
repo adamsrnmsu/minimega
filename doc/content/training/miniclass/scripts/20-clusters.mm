@@ -6,6 +6,7 @@
 # fetches what it needs over the mesh.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # A new namespace holds every mesh peer except the head node; add it too
 ns add-hosts localhost

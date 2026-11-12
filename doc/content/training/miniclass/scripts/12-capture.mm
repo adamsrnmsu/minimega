@@ -3,6 +3,7 @@
 # in /tmp/minimega/files. nfcat is expected at /opt/minimega/bin/nfcat.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the sandwich from chapter 3 with fixed client addresses (chapter 11)
 vm config kernel miniccc.kernel

@@ -3,6 +3,7 @@
 # in /tmp/minimega/files, plus an ISO at /tmp/minimega/files/lab.iso.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the sandwich from chapter 3 with fixed client addresses (chapter 11)
 vm config kernel miniccc.kernel

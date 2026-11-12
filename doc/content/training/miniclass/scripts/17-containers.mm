@@ -6,6 +6,7 @@
 # boots with cgroup v1 (see chapter 17).
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # The router, exactly as in chapter 3
 vm config kernel minirouter.kernel

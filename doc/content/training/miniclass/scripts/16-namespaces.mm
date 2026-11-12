@@ -3,6 +3,7 @@
 # /tmp/minimega/files.
 clear namespace sandwich
 namespace sandwich
+clear cc responses
 
 # the sandwich from chapter 3 with fixed client addresses (chapter 11)
 vm config kernel miniccc.kernel
@@ -37,6 +38,7 @@ shell sleep 30
 # the same sandwich again in sandwich2, queued instead of launched
 clear namespace sandwich2
 namespace sandwich2
+clear cc responses
 ns hosts
 ns queueing true
 vm config kernel miniccc.kernel
