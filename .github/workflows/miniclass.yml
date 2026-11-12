@@ -1,0 +1,274 @@
+name: Miniclass chapter scripts
+
+# Test-only: runs every miniclass chapter script against a real minimega on a
+# KVM-capable GitHub runner and reports which ones work.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  miniclass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OUT: ${{ github.workspace }}/miniclass-artifacts
+      S: doc/content/training/miniclass/scripts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Host support (KVM, Open vSwitch)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          sudo modprobe openvswitch
+          lsmod | grep -E '^(kvm|openvswitch)'
+          nproc; free -h
+          stat -fc %T /sys/fs/cgroup
+          mkdir -p "$OUT/transcripts" "$OUT/logs"
+          sudo mkdir -p /tmp/minimega/files /tmp/minimega/scripts
+          sudo chmod 777 /tmp/minimega/files
+
+      - name: Build the minimega image from the branch
+        run: |
+          set -o pipefail
+          docker build -f docker/Dockerfile -t minimega:test . 2>&1 | tee "$OUT/logs/docker-build.log"
+
+      - name: Start minimega (as docker/README.md documents)
+        run: |
+          sudo docker run -d --name minimega --hostname minimega \
+            --privileged --cap-add ALL \
+            -p 9000:9000/udp -p 9001:9001 \
+            -v /dev:/dev -v /lib/modules:/lib/modules:ro \
+            -v "$OUT/logs:/var/log/minimega" \
+            -v /tmp/minimega:/tmp/minimega \
+            -e MM_BASE=/tmp/minimega -e MM_FILEPATH=/tmp/minimega/files \
+            -e MM_LOGFILE=/var/log/minimega/minimega.log -e MM_LOGLEVEL=info \
+            minimega:test
+          for _ in $(seq 1 60); do
+            sudo docker exec minimega minimega -e version && exit 0
+            sleep 2
+          done
+          sudo docker logs minimega | tail -50
+          exit 1
+
+      - name: Restore built guest images
+        id: imgcache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/minimega/files/miniccc.kernel
+            /tmp/minimega/files/miniccc.initrd
+            /tmp/minimega/files/minirouter.kernel
+            /tmp/minimega/files/minirouter.initrd
+          key: guest-images-bookworm-${{ hashFiles('misc/vmbetter_configs/*.conf') }}
+
+      # Chapter 2, "Docker" route, typed as the chapter shows it (the clone of
+      # upstream is replaced by a copy of this checkout).
+      - name: Build the vmbetter images (chapter 2, literal Docker route)
+        id: vmb_literal
+        if: steps.imgcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          set -x
+          sudo apt-get install -y debootstrap
+          sudo docker cp minimega:/opt/minimega/bin/vmbetter /usr/local/bin/vmbetter
+          mkdir -p ~/minimega
+          cp -a . ~/minimega/
+          mkdir -p ~/minimega/bin
+          sudo docker cp minimega:/opt/minimega/bin/miniccc ~/minimega/bin/miniccc
+          sudo docker cp minimega:/opt/minimega/bin/minirouter ~/minimega/bin/minirouter
+          cd /tmp/minimega/files
+          sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/miniccc.conf
+          sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/minirouter.conf
+          ls -l /tmp/minimega/files
+
+      # The same builds with the one change the literal route needs:
+      # /usr/local/bin/vmbetter, where docker cp put it, and -branch bookworm because
+      # default.conf lists ntp and dnsutils, which Debian stable (trixie) lacks.
+      - name: Build the vmbetter images (working variant)
+        if: steps.imgcache.outputs.cache-hit != 'true' && steps.vmb_literal.outcome == 'failure'
+        run: |
+          set -x
+          cd /tmp/minimega/files
+          sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/miniccc.conf
+          sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/minirouter.conf
+          ls -l /tmp/minimega/files
+
+      - name: Prepare inputs (swtpm, ISO, scripts, Python bindings)
+        run: |
+          sudo docker exec minimega bash -c 'apt-get update -qq && apt-get install -y -qq swtpm' > "$OUT/logs/swtpm-install.log" 2>&1 || tail "$OUT/logs/swtpm-install.log"
+          sudo apt-get install -y genisoimage
+          mkdir -p /tmp/isosrc && echo lab > /tmp/isosrc/lab.txt
+          sudo genisoimage -quiet -o /tmp/minimega/files/lab.iso /tmp/isosrc
+          sudo cp "$S"/*.mm "$S"/21-automation.py /tmp/minimega/scripts/
+          sudo cp "$S"/13-console.kb /tmp/minimega/files/console.kb
+          printf '%s\n' 'namespace sandwich' 'cc prefix diag12' 'cc filter name=monitor' \
+            'cc exec sh -c "which tcpdump; ls -l /tmp; ip -br a"' 'shell sleep 6' 'cc responses diag12' \
+            | sudo tee /tmp/minimega/scripts/diag12.mm >/dev/null
+          mkdir -p /tmp/pybind
+          sudo docker cp minimega:/opt/minimega/lib/minimega.py /tmp/pybind/minimega.py
+
+      # Guests panic at 2048 MB ("Unable to mount root fs"): find the smallest
+      # memory size at which the chapter 3 sandwich boots and miniccc connects.
+      - name: Probe guest memory
+        run: |
+          mkdir -p "$OUT/probe"
+          mmx() { sudo docker exec minimega minimega -e "$@"; }
+          p="$OUT/probe/boot.txt"
+          for f in miniccc minirouter; do
+            echo "$f.initrd uncompressed bytes: $(zcat /tmp/minimega/files/$f.initrd | wc -c)" >> "$p"
+          done
+          MEM=2048
+          for mem in 2048 3072 4096; do
+            echo "## memory $mem" >> "$p"
+            sed "s/vm config memory 2048/vm config memory $mem/" /tmp/minimega/scripts/03-router-sandwich.mm | sudo tee /tmp/minimega/scripts/probe.mm >/dev/null
+            mmx clear namespace sandwich >/dev/null 2>&1; mmx clear vm config >/dev/null 2>&1
+            mmx read /tmp/minimega/scripts/probe.mm >> "$p" 2>&1 || true
+            sleep 60
+            mmx .annotate false .columns name,state,cc_active,ip namespace sandwich vm info >> "$p" 2>&1 || true
+            n=$(mmx .annotate false .columns cc_active namespace sandwich vm info 2>&1 | grep -c true || true)
+            echo "connected clients at ~90s: $n" >> "$p"
+            mmx namespace sandwich vm screenshot vm_left file "/tmp/minimega/files/probe_$mem.png" >> "$p" 2>&1 || true
+            if [ "$n" -ge 3 ]; then MEM=$mem; break; fi
+          done
+          echo "MEM=$MEM" >> "$GITHUB_ENV"
+          echo "chosen MEM=$MEM" >> "$p"
+          sudo cp /tmp/minimega/files/probe_*.png "$OUT/probe/" || true
+          sudo docker exec minimega ps -eo args | grep '[q]emu' | cut -c1-600 > "$OUT/probe/qemu-cmdline.txt" || true
+
+      - name: Run the chapter scripts
+        run: |
+          : > "$OUT/results.tsv"
+          # deviation from the chapters: guest memory raised to $MEM (see probe)
+          if [ "${MEM:-2048}" != 2048 ]; then
+            sudo sed -i "s/vm config memory 2048/vm config memory $MEM/" /tmp/minimega/scripts/*.mm
+          fi
+          cleanup() {
+            for c in "clear namespace sandwich" "clear namespace sandwich2" "clear capture" \
+                     "clear plumb" "clear pipe" "clear vnc" "clear vm config"; do
+              # shellcheck disable=SC2086
+              timeout 120 sudo docker exec minimega minimega -e $c >/dev/null 2>&1 || true
+            done
+            # stale cc responses from earlier scripts would be re-read by "cc responses N"
+            sudo rm -rf /tmp/minimega/files/sandwich /tmp/minimega/files/sandwich2
+            sleep 3
+          }
+          record() { # name status reason secs
+            printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$OUT/results.tsv"
+          }
+          skip() { record "$1" skipped "$2" 0; echo "SKIPPED $1: $2" > "$OUT/transcripts/$1.txt"; }
+          check() { # name transcript rc secs
+            local name=$1 t=$2 rc=$3 secs=$4 err
+            err=$(grep -m1 -E '^(Error|ERROR)|^error|[Ee]rror:|panic|Traceback' "$t" || true)
+            if [ "$rc" = 124 ]; then record "$name" fail "timeout after ${secs}s" "$secs"
+            elif [ "$rc" != 0 ] || [ -n "$err" ]; then record "$name" fail "rc=$rc ${err}" "$secs"
+            else record "$name" pass "" "$secs"; fi
+          }
+          run_mm() {
+            local name=$1 t="$OUT/transcripts/$1.txt" start rc
+            cleanup
+            start=$(date +%s)
+            timeout 900 sudo docker exec minimega minimega -e read "/tmp/minimega/scripts/$name.mm" > "$t" 2>&1
+            rc=$?
+            {
+              echo "## post-run state"
+              timeout 60 sudo docker exec minimega minimega -e .annotate false .columns name,state,cc_active namespace sandwich vm info
+              echo "## minimega log tail"
+              tail -n 15 "$OUT/logs/minimega.log" 2>/dev/null
+            } > "$OUT/transcripts/$name.post.txt" 2>&1 || true
+            check "$name" "$t" "$rc" "$(( $(date +%s) - start ))"
+          }
+
+          for n in 02-images 03-router-sandwich 04-vms 05-miniweb 06-networking 07-routers \
+                   08-cc 09-save-replay-cleanup 11-traffic 12-capture; do
+            run_mm "$n"
+            if [ "$n" = 12-capture ]; then
+              {
+                echo "## nfcat on the gzipped netflow file"
+                timeout 60 sudo docker exec minimega /opt/minimega/bin/nfcat -gunzip /tmp/minimega/files/sandwich.nf.gz 2>&1 | head -20
+                echo "## output files"; ls -l /tmp/minimega/files/ | grep -E 'pcap|\.nf'
+                echo "## guest check of the monitor VM"
+                timeout 60 sudo docker exec minimega minimega -e read /tmp/minimega/scripts/diag12.mm 2>&1
+              } > "$OUT/transcripts/12-capture.diag.txt" 2>&1
+            fi
+          done
+
+          run_mm 13-vnc
+          # the hand-written recording, played into vm_right as the chapter shows
+          timeout 300 sudo docker exec minimega minimega -e namespace sandwich vnc play vm_right console.kb \
+            > "$OUT/transcripts/13-console.kb.txt" 2>&1
+          rc=$?
+          sleep 12
+          timeout 60 sudo docker exec minimega minimega -e namespace sandwich vnc >> "$OUT/transcripts/13-console.kb.txt" 2>&1
+          timeout 60 sudo docker exec minimega minimega -e namespace sandwich vm screenshot vm_right file /tmp/minimega/files/console_after.png >> "$OUT/transcripts/13-console.kb.txt" 2>&1
+          check 13-console.kb "$OUT/transcripts/13-console.kb.txt" "$rc" 0
+
+          for n in 14-runtime-changes 15-plumbing 16-namespaces; do run_mm "$n"; done
+
+          skip 17-containers "host uses cgroup v2 ($(stat -fc %T /sys/fs/cgroup)); chapter requires cgroup v1 and a minicccfs filesystem"
+          skip 18-android "needs an Android SDK and an AVD; not available on a GitHub runner"
+
+          run_mm 19-specialty-guests
+
+          skip 20-clusters "needs a two-host mesh; a single runner cannot provide one"
+
+          # chapter 21: the Python bindings against the socket, as the chapter runs it
+          cleanup
+          start=$(date +%s)
+          timeout 900 sudo env PYTHONPATH=/tmp/pybind python3 /tmp/minimega/scripts/21-automation.py \
+            > "$OUT/transcripts/21-automation.txt" 2>&1
+          rc=$?
+          check 21-automation "$OUT/transcripts/21-automation.txt" "$rc" "$(( $(date +%s) - start ))"
+          # the same script with the memory raised, like every .mm above
+          if [ "${MEM:-2048}" != 2048 ]; then
+            cleanup
+            sed "s/mm.vm_config_memory(2048)/mm.vm_config_memory($MEM)/" /tmp/minimega/scripts/21-automation.py | sudo tee /tmp/minimega/scripts/21-automation.mem.py >/dev/null
+            start=$(date +%s)
+            timeout 900 sudo env PYTHONPATH=/tmp/pybind python3 /tmp/minimega/scripts/21-automation.mem.py \
+              > "$OUT/transcripts/21-automation-mem$MEM.txt" 2>&1
+            rc=$?
+            check "21-automation-mem$MEM" "$OUT/transcripts/21-automation-mem$MEM.txt" "$rc" "$(( $(date +%s) - start ))"
+          fi
+          cleanup
+          exit 0
+
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          mkdir -p "$OUT/files"
+          sudo find /tmp/minimega/files -maxdepth 1 -type f -size -20M \( -name '*.png' -o -name '*.pcap' -o -name '*.nf*' -o -name 'session.*' -o -name '*.sh' -o -name 'sandwich.mm' \) -exec cp {} "$OUT/files/" \; || true
+          sudo docker logs minimega > "$OUT/logs/container.log" 2>&1 || true
+          sudo docker exec minimega ovs-vsctl show > "$OUT/logs/ovs.txt" 2>&1 || true
+          sudo chown -R "$(id -u):$(id -g)" "$OUT" || true
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Miniclass chapter scripts"
+            echo
+            echo "| script | status | seconds | note |"
+            echo "|---|---|---|---|"
+            if [ -f "$OUT/results.tsv" ]; then
+              awk -F'\t' '{printf "| %s | %s | %s | %s |\n", $1, $2, $4, $3}' "$OUT/results.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniclass-transcripts
+          path: miniclass-artifacts
+          retention-days: 14
+          if-no-files-found: warn
