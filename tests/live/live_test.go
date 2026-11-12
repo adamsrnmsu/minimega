@@ -64,6 +64,7 @@ func TestLive(t *testing.T) {
 		{"CCFilterTag", testCCFilterTag, cc},
 		{"CCExitCode", testCCExitCode, cc},
 		{"CCSendRecv", testCCSendRecv, cc},
+		{"CCSendTo", testCCSendTo, cc},
 		{"CCBackgroundProcess", testCCBackgroundProcess, cc},
 		{"CCResponses", testCCResponses, cc},
 
@@ -545,6 +546,28 @@ func testCCExitCode(t *testing.T) {
 	code := strings.TrimSpace(mustText(t, fmt.Sprintf("cc exitcode %d host-b2", id)))
 	if code != "3" {
 		t.Errorf("cc exitcode = %q, want 3", code)
+	}
+}
+
+// testCCSendTo checks that "cc send-to" puts a file in the destination
+// directory: absolute paths are used as given, relative ones sit under the
+// client's files directory.
+func testCCSendTo(t *testing.T) {
+	payload := fmt.Sprintf("minimega send-to %d\n", time.Now().UnixNano())
+	src, _ := artifact(t, "send-to.txt")
+	if err := os.WriteFile(src, []byte(payload), 0644); err != nil {
+		t.Fatal(err)
+	}
+	file := namespace + "/artifacts/send-to.txt"
+
+	for dest, want := range map[string]string{
+		"/opt/live-send-to": "/opt/live-send-to/" + file,
+		"live-rel":          "/tmp/miniccc/files/live-rel/" + file,
+	} {
+		ccRun(t, "name=host-c5", "send-to "+dest+" "+file, 1, time.Minute)
+		if out := ccEventually(t, "host-c5", "cat "+want, 30*time.Second); out != payload {
+			t.Errorf("send-to %s: guest read %q at %s, want %q", dest, out, want, payload)
+		}
 	}
 }
 
