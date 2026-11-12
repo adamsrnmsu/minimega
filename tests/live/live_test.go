@@ -1062,6 +1062,7 @@ func testSave(t *testing.T) {
 }
 
 func testKillFlushRelaunch(t *testing.T) {
+	a5taps := list(vmInfo(t)["host-a5"]["tap"])
 	mustRun(t, "vm kill host-a5")
 	eventually(t, 30*time.Second, 2*time.Second, func() error {
 		if s := vmInfo(t)["host-a5"]["state"]; s != "QUIT" {
@@ -1073,6 +1074,8 @@ func testKillFlushRelaunch(t *testing.T) {
 	if _, ok := vmInfo(t)["host-a5"]; ok {
 		t.Fatalf("host-a5 still present after flush")
 	}
+	// the reaper deletes the tap devices, not just the OVS ports
+	requireLinksGone(t, a5taps)
 
 	// relaunch through the queue from a clone of a running VM's config
 	// (clone needs a launched VM, so it can't be used for queued ones)
@@ -1110,6 +1113,10 @@ func testKillFlushRelaunch(t *testing.T) {
 // --- teardown ----------------------------------------------------------------
 
 func testClearNamespace(t *testing.T) {
+	var taps []string
+	for _, r := range vmInfo(t) {
+		taps = append(taps, list(r["tap"])...)
+	}
 	if _, err := client.raw("clear namespace " + namespace); err != nil {
 		t.Fatalf("clear namespace: %v", err)
 	}
@@ -1128,6 +1135,25 @@ func testClearNamespace(t *testing.T) {
 		out, err := inContainer(t, "ovs-vsctl", "list-ports", "mega_bridge")
 		if err == nil && strings.TrimSpace(out) != "" {
 			return fmt.Errorf("ports left on mega_bridge: %v", strings.Fields(out))
+		}
+		return nil
+	})
+	requireLinksGone(t, taps)
+}
+
+// requireLinksGone waits for the host tap devices to be deleted.
+func requireLinksGone(t *testing.T, taps []string) {
+	t.Helper()
+	if len(taps) == 0 {
+		t.Fatalf("no taps recorded before teardown")
+	}
+	eventually(t, time.Minute, 3*time.Second, func() error {
+		out, err := inContainer(t, "ls", "/sys/class/net")
+		if err != nil {
+			return fmt.Errorf("ls /sys/class/net: %v %s", err, out)
+		}
+		if left := linksPresent(taps, out); len(left) != 0 {
+			return fmt.Errorf("tap devices left: %v", left)
 		}
 		return nil
 	})

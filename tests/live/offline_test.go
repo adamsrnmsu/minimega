@@ -78,6 +78,16 @@ func TestReadResponsesBadExitCode(t *testing.T) {
 	}
 }
 
+func TestLinksPresent(t *testing.T) {
+	got := linksPresent([]string{"a1", "a2", "a3"}, "lo\neth0\na2\na3\n")
+	if fmt.Sprint(got) != "[a2 a3]" {
+		t.Errorf("got %v, want [a2 a3]", got)
+	}
+	if got := linksPresent([]string{"a1"}, "lo\neth0\n"); len(got) != 0 {
+		t.Errorf("got %v, want none", got)
+	}
+}
+
 func TestMissingNeed(t *testing.T) {
 	passed := map[string]bool{"Version": true, "Inventory": true}
 	for _, c := range []struct {
