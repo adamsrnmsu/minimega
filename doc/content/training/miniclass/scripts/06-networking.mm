@@ -37,7 +37,14 @@ vlans
 # a host tap on net_left: the host is now 10.0.0.254 on that network
 tap create net_left ip 10.0.0.254/24
 tap
-shell ping -c 3 10.0.0.1
+# prove it from the guest side: the Docker image has no ping on the host
+cc filter name=vm_left
+cc prefix tap
+cc exec ping -c 3 10.0.0.254
+shell sleep 8
+cc responses tap
+clear cc prefix
+clear cc filter
 
 # unplug vm_right, look, plug it back in
 vm net disconnect vm_right 0
