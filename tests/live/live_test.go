@@ -1069,6 +1069,13 @@ func testKillFlushRelaunch(t *testing.T) {
 		}
 		return nil
 	})
+	// the killed VM's client is gone, so cc_active must drop to false
+	eventually(t, time.Minute, 2*time.Second, func() error {
+		if cc := vmInfo(t)["host-a5"]["cc_active"]; cc != "false" {
+			return fmt.Errorf("host-a5 cc_active = %v after kill", cc)
+		}
+		return nil
+	})
 	mustRun(t, "vm flush")
 	if _, ok := vmInfo(t)["host-a5"]; ok {
 		t.Fatalf("host-a5 still present after flush")
