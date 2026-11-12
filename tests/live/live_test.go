@@ -53,6 +53,7 @@ func TestLive(t *testing.T) {
 		{"Bridge", testBridge, inv},
 		{"FileList", testFileList, inv},
 		{"Disk", testDisk, inv},
+		{"DiskExtract", testDiskExtract, version},
 		{"Miniweb", testMiniweb, inv},
 
 		// guests come up
