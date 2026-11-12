@@ -17,9 +17,15 @@ import (
 // clientFormat is the pixel format that the client sends after the
 // handshake. The decoder knows how to decode it.
 var clientFormat = PixelFormat{
-	BitsPerPixel: 32, Depth: 24, TrueColorFlag: 1,
-	RedMax: 255, GreenMax: 255, BlueMax: 255,
-	RedShift: 16, GreenShift: 8, BlueShift: 0,
+	BitsPerPixel:  32,
+	Depth:         24,
+	TrueColorFlag: 1,
+	RedMax:        255,
+	GreenMax:      255,
+	BlueMax:       255,
+	RedShift:      16,
+	GreenShift:    8,
+	BlueShift:     0,
 }
 
 // handshakeTimeout is the time that Dial has to connect and to complete the
