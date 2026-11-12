@@ -106,8 +106,9 @@ the vmbetter overlays link to them:
 | `minicccfs.tar.gz` (container filesystem) | `sudo bash misc/vmbetter.bash minicccfs` | Chapter 17 |
 | An Android SDK and an AVD named `Pixel_9a` | `sdkmanager` and `avdmanager`, as in [Chapter 18](18-android.md#prepare-the-host) | Chapter 18 |
 
-The wrapper pins Debian `stable` and the US mirror; edit `misc/vmbetter.bash`
-if you need another mirror. Check Chapters 11 to 14 for any additional
+The wrapper pins Debian `stable` and the US mirror. `stable` is now trixie, which
+fails to build; edit `branch=stable` to `branch=bookworm` in `misc/vmbetter.bash`
+(and the mirror, if you need another). Check Chapters 11 to 14 for any additional
 media they use (an ISO for `vm cdrom`, for example) and stage that too.
 Boot each image once on the build machine before copying it anywhere.
 

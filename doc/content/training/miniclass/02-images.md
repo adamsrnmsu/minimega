@@ -85,22 +85,26 @@ warning and may drop commands.
 
 vmbetter writes `<name>.kernel` and `<name>.initrd` into the current
 directory, so run it from minimega's files directory and the results land
-where the next chapters look for them. `-branch stable` pins the Debian
+where the next chapters look for them. `-branch bookworm` pins the Debian
 release that `debootstrap` installs (the default is `testing`), and
-`-level info` shows progress.
+`-level info` shows progress. Name the release rather than using `stable`:
+`stable` is now Debian 13 (trixie), which no longer carries the `ntp` and
+`dnsutils` packages that `misc/vmbetter_configs/default.conf` installs, so
+the build stops with `E: Couldn't find these debs: dnsutils ntp`.
 
 **Package**
 
 ```bash
 cd /tmp/minimega/files
-sudo /opt/minimega/bin/vmbetter -level info -branch stable /opt/minimega/misc/vmbetter_configs/miniccc.conf
-sudo /opt/minimega/bin/vmbetter -level info -branch stable /opt/minimega/misc/vmbetter_configs/minirouter.conf
+sudo /opt/minimega/bin/vmbetter -level info -branch bookworm /opt/minimega/misc/vmbetter_configs/miniccc.conf
+sudo /opt/minimega/bin/vmbetter -level info -branch bookworm /opt/minimega/misc/vmbetter_configs/minirouter.conf
 ```
 
 **Source**
 
 The repository's `misc/vmbetter.bash` wraps the same two builds with the same
-flags and expects the binaries in `bin/`. It writes into the current
+flags and expects the binaries in `bin/`. It pins `branch=stable`, so change
+that line to `branch=bookworm` first, for the reason above. It writes into the current
 directory, so run it from the repository root and move the results:
 
 ```bash
@@ -122,8 +126,8 @@ mkdir -p ~/minimega/bin
 sudo docker cp minimega:/opt/minimega/bin/miniccc ~/minimega/bin/miniccc
 sudo docker cp minimega:/opt/minimega/bin/minirouter ~/minimega/bin/minirouter
 cd /tmp/minimega/files
-sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/miniccc.conf
-sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/minirouter.conf
+sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/miniccc.conf
+sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/minirouter.conf
 ```
 
 A fresh clone has no `bin/` directory, so the overlay links dangle until the
