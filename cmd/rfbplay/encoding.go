@@ -25,11 +25,40 @@ const (
 // sends the data with no compression.
 const tightMinToCompress = 12
 
+// The compression control byte that starts each Tight rectangle. See "Tight
+// Encoding" in the RFB protocol community edition (rfbproto).
+const (
+	// tightStreams is the number of zlib streams. Bits 0 to 3 reset streams
+	// 0 to 3.
+	tightStreams = 4
+
+	// tightBasic is clear for basic compression. Otherwise the high four bits
+	// (tightTypeMask) give the compression type.
+	tightBasic    = 0x80
+	tightTypeMask = 0xf0
+	tightFill     = 0x80
+	tightJPEG     = 0x90
+
+	// For basic compression, bits 4 and 5 give the zlib stream, and bit 6
+	// says that a filter ID follows.
+	tightStreamShift    = 4
+	tightStreamMask     = 0x3
+	tightExplicitFilter = 0x40
+)
+
+// A Tight compact length has one to three bytes. The first two give 7 bits
+// each and set clenMore when another byte follows. The third gives 8 bits.
+const (
+	clenBits = 7
+	clenMask = 0x7f
+	clenMore = 0x80
+)
+
 // tightDecoder decodes Tight rectangles. A Tight server keeps one zlib stream
 // for each of four stream IDs across the rectangles of a connection, so each
 // recording that is read needs its own tightDecoder.
 type tightDecoder struct {
-	streams [4]zlibStream
+	streams [tightStreams]zlibStream
 }
 
 // zlibStream is one zlib stream of a Tight connection. The server sends the
@@ -153,11 +182,11 @@ func (d *tightDecoder) Decode(r io.Reader, rect *Rectangle) error {
 	}
 
 	switch {
-	case ctl[0]&0x80 == 0:
+	case ctl[0]&tightBasic == 0:
 		return d.decodeBasic(r, ctl[0], rect)
-	case ctl[0]&0xf0 == 0x80:
+	case ctl[0]&tightTypeMask == tightFill:
 		return decodeFill(r, rect)
-	case ctl[0]&0xf0 == 0x90:
+	case ctl[0]&tightTypeMask == tightJPEG:
 		return errors.New("unimplemented: jpeg compression")
 	default:
 		return fmt.Errorf("unknown tight compression control %#x", ctl[0])
@@ -199,10 +228,10 @@ func readData(r io.Reader, s *zlibStream, size int) ([]byte, error) {
 }
 
 func (d *tightDecoder) decodeBasic(r io.Reader, ctl byte, rect *Rectangle) error {
-	s := &d.streams[(ctl>>4)&0x3]
+	s := &d.streams[(ctl>>tightStreamShift)&tightStreamMask]
 
 	filter := CopyFilter
-	if ctl&0x40 != 0 {
+	if ctl&tightExplicitFilter != 0 {
 		var b [1]byte
 		if _, err := io.ReadFull(r, b[:]); err != nil {
 			return errors.New("unable to decode filter ID")
@@ -335,12 +364,12 @@ func DecodeCLength(r io.Reader) (uint, error) {
 		}
 
 		if i == 2 {
-			res |= uint(b[0]) << 14
+			res |= uint(b[0]) << (2 * clenBits)
 			break
 		}
 
-		res |= uint(b[0]&0x7f) << (7 * i)
-		if b[0]&0x80 == 0 {
+		res |= uint(b[0]&clenMask) << (clenBits * i)
+		if b[0]&clenMore == 0 {
 			break
 		}
 	}
