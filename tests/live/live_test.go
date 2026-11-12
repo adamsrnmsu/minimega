@@ -54,6 +54,7 @@ func TestLive(t *testing.T) {
 		{"FileList", testFileList, inv},
 		{"Disk", testDisk, inv},
 		{"Miniweb", testMiniweb, inv},
+		{"PlumbFileTerminal", testPlumbFileTerminal, version},
 
 		// guests come up
 		{"CCClients", testCCClients, inv},
@@ -388,6 +389,44 @@ func testDisk(t *testing.T) {
 	snap := mustTable(t, "disk info live/data-snap.qcow2")
 	if len(snap) == 0 || !strings.Contains(snap[0]["backingfile"], "data.qcow2") {
 		t.Errorf("snapshot backing file: %v", snap)
+	}
+}
+
+// testPlumbFileTerminal plumbs a named pipe into a file:// terminal and checks
+// that written messages land in the file, appended in order, and that a file
+// terminal anywhere but the end of a pipeline is rejected.
+func testPlumbFileTerminal(t *testing.T) {
+	out, mmPath := artifact(t, "plumb-out.txt")
+	os.Remove(out)
+	t.Cleanup(func() { client.run("clear plumb") })
+
+	mustRun(t, "plumb live-plumb-src file://"+mmPath)
+
+	read := func(want ...string) error {
+		b, err := os.ReadFile(out)
+		if err != nil {
+			return err
+		}
+		if got := strings.Fields(string(b)); strings.Join(got, ",") != strings.Join(want, ",") {
+			return fmt.Errorf("file has %q, want %q", got, want)
+		}
+		return nil
+	}
+
+	mustRun(t, "pipe live-plumb-src first")
+	eventually(t, 30*time.Second, time.Second, func() error { return read("first") })
+
+	// a second message appends to the existing file
+	mustRun(t, "pipe live-plumb-src second")
+	eventually(t, 30*time.Second, time.Second, func() error { return read("first", "second") })
+
+	for _, bad := range []string{
+		"plumb file://" + mmPath + " live-plumb-dst",
+		"plumb live-plumb-src file://" + mmPath + " live-plumb-dst",
+	} {
+		if _, err := client.run(bad); err == nil {
+			t.Errorf("%q succeeded, want an error", bad)
+		}
 	}
 }
 
