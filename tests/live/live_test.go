@@ -8,11 +8,13 @@ package live
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -66,6 +68,7 @@ func TestLive(t *testing.T) {
 		{"CCSendRecv", testCCSendRecv, cc},
 		{"CCBackgroundProcess", testCCBackgroundProcess, cc},
 		{"CCResponses", testCCResponses, cc},
+		{"CCAutoUpdate", testCCAutoUpdate, cc},
 
 		// what the guest sees of its VM configuration
 		{"GuestQemuAppend", testGuestQemuAppend, cc},
@@ -614,6 +617,159 @@ func testCCResponses(t *testing.T) {
 }
 
 // --- guest view of VM configuration ----------------------------------------
+
+// guestClient fetches a guest's /usr/bin/miniccc with cc recv.
+func guestClient(t *testing.T, vm string) []byte {
+	t.Helper()
+	size, err := strconv.Atoi(strings.TrimSpace(ccOK(t, vm, "wc -c < /usr/bin/miniccc")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, id := ccRun(t, "name="+vm, "recv /usr/bin/miniccc", 1, time.Minute)
+	path := fmt.Sprintf("%v/%v/miniccc_responses/%d/%v/usr/bin/miniccc", mmFiles, namespace, id, vmInfo(t)[vm]["uuid"])
+	var b []byte
+	eventually(t, time.Minute, time.Second, func() (err error) {
+		if b, err = os.ReadFile(path); err == nil && len(b) != size {
+			err = fmt.Errorf("received %d of %d bytes", len(b), size)
+		}
+		return err
+	})
+	return b
+}
+
+// clientState reports a guest's miniccc processes (pid -> executable, from
+// /proc) and what its /usr/bin/miniccc binary says with -version. No shell
+// variables: minimega expands $name in commands.
+func clientState(vm string) (map[string]string, string, error) {
+	r, err := ccExecTry(vm, "ls -l /proc/*/exe 2>/dev/null; echo ---; /usr/bin/miniccc -version; ls /usr/bin/miniccc.update 2>/dev/null", 30*time.Second)
+	if err != nil {
+		return nil, "", err
+	}
+	ls, rest, _ := strings.Cut(r.Stdout, "---")
+	return clientProcs(ls), rest, nil
+}
+
+// waitClient waits until the guest runs exactly one miniccc, not pid old,
+// from the current /usr/bin/miniccc, and that binary reports want (any
+// revision if want is ""). It returns the revision the binary reports.
+func waitClient(t *testing.T, vm, old, want string) string {
+	t.Helper()
+	var rev string
+	eventually(t, 3*time.Minute, 3*time.Second, func() error {
+		procs, rest, err := clientState(vm)
+		if err != nil {
+			return err
+		}
+		rev = revisionOf(rest)
+		_, oldAlive := procs[old]
+		if len(procs) != 1 || oldAlive || strings.Contains(rest, ".update") || (want != "" && rev != want) {
+			return fmt.Errorf("miniccc processes %v (old pid %v), binary reports %q", procs, old, strings.TrimSpace(rest))
+		}
+		for _, exe := range procs {
+			if exe != "/usr/bin/miniccc" {
+				return fmt.Errorf("client runs %q", exe)
+			}
+		}
+		return nil
+	})
+	return rev
+}
+
+// restartClient runs swap (shell commands ending in "&& ", or ""), kills the
+// guest's client so init starts /usr/bin/miniccc again, and waits for the new
+// client (reporting want, if set). It returns the revision it reports.
+func restartClient(t *testing.T, vm, swap, want string) string {
+	t.Helper()
+	procs, _, err := clientState(vm)
+	if err != nil || len(procs) != 1 {
+		t.Fatalf("%v before restart: miniccc processes %v: %v", vm, procs, err)
+	}
+	var old string
+	for pid := range procs {
+		old = pid
+	}
+	// exec-once: a reconnecting client is sent every matching cc command
+	// again, and the new process would otherwise redo the swap and the kill.
+	// Do not wait for a response: the client queues it for its next
+	// heartbeat and is killed first. waitClient sees the restart instead.
+	ccRun(t, "name="+vm, fmt.Sprintf("exec-once sh -c %q", swap+"(sleep 1; kill "+old+") >/dev/null 2>&1 &"), 0, time.Minute)
+	return waitClient(t, vm, old, want)
+}
+
+// stageAutoUpdate serves the guest's own client as the update and sends the
+// guest a stale copy (artifacts/miniccc-stale). It returns the served binary.
+func stageAutoUpdate(t *testing.T, vm, rev string) []byte {
+	t.Helper()
+	// The guest's own client is the update: same build and arch as minimega.
+	current := guestClient(t, vm)
+	stale, err := staleClient(current, rev)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	served := filepath.Join(mmFiles, namespace, "miniccc")
+	if err := os.WriteFile(served, current, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		client.run("cc auto-update false")
+		os.Remove(served)
+	})
+	src, _ := artifact(t, "miniccc-stale")
+	if err := os.WriteFile(src, stale, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ccRun(t, "name="+vm, "send "+namespace+"/artifacts/miniccc-stale", 1, time.Minute)
+	return current
+}
+
+// logClient logs a guest's client state for diagnosis: binaries on disk,
+// running clients, and the end of the miniccc log.
+func logClient(t *testing.T, vm, label string) {
+	t.Helper()
+	r, err := ccExecTry(vm, "ls -l /usr/bin/miniccc* /tmp/miniccc/files/"+namespace+"/artifacts/miniccc* 2>&1; md5sum /usr/bin/miniccc; ls -l /proc/*/exe 2>/dev/null | grep miniccc; tail -n 40 /var/log/miniccc.log", 30*time.Second)
+	t.Logf("%v client state (%v): %v\n%s%s", vm, label, err, r.Stdout, r.Stderr)
+}
+
+// testCCAutoUpdate checks "cc auto-update": a client whose revision differs
+// from minimega's is replaced by the miniccc in the files directory when it
+// connects, and only while auto-update is on.
+func testCCAutoUpdate(t *testing.T) {
+	const vm = "host-d3"
+	rev := revisionOf(mustText(t, "version"))
+	if rev == "" {
+		t.Fatal("no revision in minimega's version")
+	}
+
+	current := stageAutoUpdate(t, vm, rev)
+	logClient(t, vm, "staged")
+	t.Cleanup(func() {
+		if t.Failed() {
+			logClient(t, vm, "on failure")
+		}
+	})
+
+	// off (the default): the stale client connects and stays stale
+	swap := "cp /tmp/miniccc/files/" + namespace + "/artifacts/miniccc-stale /usr/bin/miniccc.new && mv /usr/bin/miniccc.new /usr/bin/miniccc && "
+	if got := restartClient(t, vm, swap, ""); got == rev || got == "" {
+		t.Fatalf("stale client reports revision %q, want a stale one", got)
+	}
+	time.Sleep(10 * time.Second)
+	if got := revisionOf(ccOK(t, vm, "/usr/bin/miniccc -version")); got == rev {
+		t.Fatal("client updated while auto-update was off")
+	}
+
+	// on: the stale client is replaced as it connects
+	// "cc auto-update" without true/false is not a valid pattern, so the
+	// setting cannot be read back; the update below shows it took effect
+	mustRun(t, "cc auto-update true")
+	// the updated binary must be in place, running, and report minimega's
+	// revision
+	restartClient(t, vm, "", rev)
+	if got := strings.Fields(ccOK(t, vm, "md5sum /usr/bin/miniccc")); len(got) == 0 || got[0] != fmt.Sprintf("%x", md5.Sum(current)) {
+		t.Errorf("guest binary %v does not match the served miniccc", got)
+	}
+}
 
 func testGuestQemuAppend(t *testing.T) {
 	out := ccOK(t, "host-c1", "cat /sys/class/dmi/id/product_serial")
