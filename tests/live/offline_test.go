@@ -200,3 +200,54 @@ func TestFBChunks(t *testing.T) {
 		t.Errorf("two chunks: %d, %v; want 2", n, err)
 	}
 }
+
+func TestRevisionOf(t *testing.T) {
+	const rev = "684a5e26b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6"
+	if got := revisionOf("minimega 3.3.0 " + rev + " 2026-11-11\n"); got != rev {
+		t.Errorf("revisionOf = %q, want %q", got, rev)
+	}
+	if got := revisionOf("minimega 3.3.0"); got != "" {
+		t.Errorf("no revision: got %q", got)
+	}
+}
+
+func TestStaleClient(t *testing.T) {
+	const rev = "684a5e26b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6"
+	bin := []byte("\x7fELF..." + rev + "...vcs.revision=" + rev + "...")
+	stale, err := staleClient(bin, rev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stale) != len(bin) {
+		t.Errorf("length changed: %d, want %d", len(stale), len(bin))
+	}
+	if bytes.Contains(stale, []byte(rev)) {
+		t.Error("stale client still carries the revision")
+	}
+	if !bytes.HasPrefix(stale, []byte("\x7fELF...")) {
+		t.Error("bytes outside the revision changed")
+	}
+	if _, err := staleClient([]byte("no revision here"), rev); err == nil {
+		t.Error("missing revision: want an error")
+	}
+	if _, err := staleClient(bin, ""); err == nil {
+		t.Error("empty revision: want an error")
+	}
+}
+
+func TestClientProcs(t *testing.T) {
+	out := `lrwxrwxrwx    1 root     root             0 Nov 12 05:40 /proc/196/exe -> /usr/bin/miniccc
+lrwxrwxrwx    1 root     root             0 Nov 12 05:40 /proc/1/exe -> /bin/busybox
+lrwxrwxrwx    1 root     root             0 Nov 12 05:40 /proc/205/exe -> /usr/bin/miniccc (deleted)
+`
+	got := clientProcs(out)
+	want := map[string]string{"196": "/usr/bin/miniccc", "205": "/usr/bin/miniccc (deleted)"}
+	if len(got) != len(want) {
+		t.Fatalf("clientProcs = %v, want %v", got, want)
+	}
+	for pid, exe := range want {
+		if got[pid] != exe {
+			t.Errorf("pid %v: exe %q, want %q", pid, got[pid], exe)
+		}
+	}
+}
