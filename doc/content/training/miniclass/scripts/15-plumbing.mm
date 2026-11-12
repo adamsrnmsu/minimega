@@ -65,9 +65,13 @@ pipe rtt 100
 .annotate false .columns name,via,count pipe
 clear pipe rtt via
 
-# clearing the first pipe sends EOF down the pipeline; stop the ping too
-clear pipe pings
+# a pipe with an open writer cannot be deleted, so stop the ping first;
+# clearing the pipe then sends EOF down the pipeline
+cc filter name=vm_left
 cc process killall ping
+clear cc filter
+shell sleep 5
+clear pipe pings
 shell sleep 2
 .annotate false plumb
 clear plumb
