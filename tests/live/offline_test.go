@@ -200,3 +200,15 @@ func TestFBChunks(t *testing.T) {
 		t.Errorf("two chunks: %d, %v; want 2", n, err)
 	}
 }
+
+func TestConsolePID(t *testing.T) {
+	page := "<script>\n\t\tvar pid = \"4242\";\n</script>"
+	if pid, err := consolePID([]byte(page)); err != nil || pid != 4242 {
+		t.Errorf("consolePID = %v, %v; want 4242", pid, err)
+	}
+	for _, bad := range []string{"", "no console here", `var pid = "";`, `var pid = "x";`} {
+		if _, err := consolePID([]byte(bad)); err == nil {
+			t.Errorf("consolePID(%q): want an error", bad)
+		}
+	}
+}
