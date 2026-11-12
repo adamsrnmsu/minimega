@@ -26,7 +26,8 @@ router router commit
 vm start router
 shell sleep 10
 vm start all
-shell sleep 20
+# wait until all three VMs have a connected agent and an address (about 90 s)
+shell timeout 300 sh -c "until minimega -e .annotate false .columns cc_active,ip namespace sandwich vm info 2>/dev/null | grep -c 'true.*10[.]' | grep -qx 3; do sleep 3; done"
 
 # every VM should have a connected agent
 .annotate false .columns name,cc_active vm info
