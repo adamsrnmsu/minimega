@@ -15,15 +15,54 @@ import (
 	"net"
 	"os"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcapgo"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcapgo"
 )
 
 // This file has no build tag so its unit tests run without a deployment. It
 // reads the artifacts minimega writes (pcaps, screenshots, VNC recordings).
 
-// countICMPEcho counts ICMP echo requests to dst in a pcap file.
+// packetSource is what pcapgo.Reader and pcapgo.NgReader share.
+type packetSource interface {
+	ReadPacketData() ([]byte, gopacket.CaptureInfo, error)
+	LinkType() layers.LinkType
+}
+
+// pcapngMagic is the first four bytes of a pcapng file (a section header
+// block); a classic pcap starts with its own magic number.
+var pcapngMagic = []byte{0x0a, 0x0d, 0x0d, 0x0a}
+
+// isPcapng reports whether the file starts like a pcapng file.
+func isPcapng(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	b := make([]byte, 4)
+	if _, err := io.ReadFull(f, b); err != nil {
+		return false, err
+	}
+	return bytes.Equal(b, pcapngMagic), nil
+}
+
+// openCapture reads a classic pcap or a pcapng file, chosen by magic.
+func openCapture(f *os.File) (packetSource, error) {
+	b := make([]byte, 4)
+	if _, err := io.ReadFull(f, b); err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	if bytes.Equal(b, pcapngMagic) {
+		return pcapgo.NewNgReader(f, pcapgo.DefaultNgReaderOptions)
+	}
+	return pcapgo.NewReader(f)
+}
+
+// countICMPEcho counts ICMP echo requests to dst in a pcap or pcapng file.
 func countICMPEcho(path, dst string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -31,7 +70,7 @@ func countICMPEcho(path, dst string) (int, error) {
 	}
 	defer f.Close()
 
-	r, err := pcapgo.NewReader(f)
+	r, err := openCapture(f)
 	if err != nil {
 		return 0, err
 	}

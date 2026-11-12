@@ -16,9 +16,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcapgo"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcapgo"
 )
 
 // These tests need no deployment: run them with `go test ./tests/live`.
@@ -131,6 +131,30 @@ func writePcap(t *testing.T, pkts ...[]byte) string {
 	return path
 }
 
+func writePcapng(t *testing.T, pkts ...[]byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "x.pcapng")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	w, err := pcapgo.NewNgWriter(f, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range pkts {
+		ci := gopacket.CaptureInfo{CaptureLength: len(p), Length: len(p)}
+		if err := w.WritePacket(ci, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func icmpPacket(t *testing.T, dst string, typ uint8) []byte {
 	t.Helper()
 	buf := gopacket.NewSerializeBuffer()
@@ -155,6 +179,25 @@ func TestCountICMPEcho(t *testing.T) {
 	n, err := countICMPEcho(path, "10.10.1.1")
 	if err != nil || n != 2 {
 		t.Fatalf("countICMPEcho = %d, %v; want 2 echo requests to 10.10.1.1", n, err)
+	}
+}
+
+func TestCountICMPEchoPcapng(t *testing.T) {
+	path := writePcapng(t,
+		icmpPacket(t, "10.10.1.1", layers.ICMPv4TypeEchoRequest),
+		icmpPacket(t, "10.10.1.1", layers.ICMPv4TypeEchoReply),
+		icmpPacket(t, "10.10.1.1", layers.ICMPv4TypeEchoRequest),
+		icmpPacket(t, "10.10.2.1", layers.ICMPv4TypeEchoRequest),
+	)
+	n, err := countICMPEcho(path, "10.10.1.1")
+	if err != nil || n != 2 {
+		t.Fatalf("countICMPEcho(pcapng) = %d, %v; want 2", n, err)
+	}
+	if ng, err := isPcapng(path); err != nil || !ng {
+		t.Errorf("isPcapng(pcapng) = %v, %v", ng, err)
+	}
+	if ng, err := isPcapng(writePcap(t)); err != nil || ng {
+		t.Errorf("isPcapng(pcap) = %v, %v", ng, err)
 	}
 }
 

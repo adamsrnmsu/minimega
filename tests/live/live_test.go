@@ -86,6 +86,7 @@ func TestLive(t *testing.T) {
 		{"HostTap", testHostTap, network},
 		{"QoS", testQoS, network},
 		{"CapturePcap", testCapturePcap, network},
+		{"CapturePcapng", testCapturePcapng, network},
 
 		// VM operations
 		{"Screenshot", testScreenshot, inv},
@@ -890,6 +891,32 @@ func testCapturePcap(t *testing.T) {
 	// the capture must hold the pings, not just background ARP and OSPF
 	if n, err := countICMPEcho(host, "10.10.1.1"); err != nil || n < 5 {
 		t.Errorf("pcap has %d ICMP echo requests to 10.10.1.1, want >= 5: %v", n, err)
+	}
+	keep(t, host)
+}
+
+// testCapturePcapng captures with the per-capture format option and checks
+// the file really is pcapng and the capture list reports the format.
+func testCapturePcapng(t *testing.T) {
+	host, path := artifact(t, "host-a5.pcapng")
+	mustRun(t, "capture pcap vm host-a5 0 "+path+" format=pcapng")
+	ccOK(t, "host-a5", "ping -c 5 -W 2 10.10.1.1")
+	found := false
+	for _, r := range mustTable(t, "capture") {
+		for _, v := range r {
+			found = found || v == "pcapng"
+		}
+	}
+	if !found {
+		t.Errorf("capture list does not show a pcapng capture")
+	}
+	mustRun(t, "capture pcap delete vm host-a5")
+
+	if ng, err := isPcapng(host); err != nil || !ng {
+		t.Errorf("%v is not pcapng: %v", host, err)
+	}
+	if n, err := countICMPEcho(host, "10.10.1.1"); err != nil || n < 5 {
+		t.Errorf("pcapng has %d ICMP echo requests to 10.10.1.1, want >= 5: %v", n, err)
 	}
 	keep(t, host)
 }
