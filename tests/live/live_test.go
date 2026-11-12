@@ -64,6 +64,7 @@ func TestLive(t *testing.T) {
 		{"CCFilterTag", testCCFilterTag, cc},
 		{"CCExitCode", testCCExitCode, cc},
 		{"CCSendRecv", testCCSendRecv, cc},
+		{"CCSendGlob", testCCSendGlob, cc},
 		{"CCBackgroundProcess", testCCBackgroundProcess, cc},
 		{"CCResponses", testCCResponses, cc},
 
@@ -576,6 +577,29 @@ func testCCSendRecv(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// cc send with a wildcard (issue #1480) must deliver every matching file and
+// nothing else.
+func testCCSendGlob(t *testing.T) {
+	names := []string{"glob-1.txt", "glob-2.txt", "glob-3.txt", "other.dat"}
+	for _, n := range names {
+		src, _ := artifact(t, n)
+		if err := os.WriteFile(src, []byte("payload "+n+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ccRun(t, "name=host-c4", "send "+namespace+"/artifacts/glob-*.txt", 1, time.Minute)
+	dir := "/tmp/miniccc/files/" + namespace + "/artifacts/"
+	for _, n := range names[:3] {
+		if out := ccOK(t, "host-c4", "cat "+dir+n); out != "payload "+n+"\n" {
+			t.Errorf("guest read %q for %v", out, n)
+		}
+	}
+	if out := ccOK(t, "host-c4", "ls "+dir+" | grep -c other.dat || true"); strings.TrimSpace(out) != "0" {
+		t.Errorf("non-matching file other.dat was sent")
+	}
 }
 
 func testCCBackgroundProcess(t *testing.T) {
