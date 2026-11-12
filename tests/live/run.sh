@@ -22,6 +22,9 @@
 #   LIVE_IMAGE            image to test (default: first argument, then
 #                         ghcr.io/sandia-minimega/minimega:master)
 #   LIVE_PULL=0           use a local image without pulling
+#   LIVE_WEB_IMAGE        miniweb image; when set, miniweb runs in its own
+#                         container beside minimega, as docker/README.md
+#                         documents, and the web console is enabled
 #   LIVE_CONTAINER        container name (default: minimega)
 #   LIVE_MM_BASE          minimega base dir, same path on host and in the
 #                         container (default: /tmp/minimega)
@@ -44,6 +47,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 IMAGE="${1:-${LIVE_IMAGE:-ghcr.io/sandia-minimega/minimega:master}}"
 CONTAINER="${LIVE_CONTAINER:-minimega}"
+WEB_IMAGE="${LIVE_WEB_IMAGE:-}"
+WEB_CONTAINER="${CONTAINER}-web"
 MM_BASE="${LIVE_MM_BASE:-/tmp/minimega}"
 MM_FILES="${MM_BASE}/files"
 STAGE="${MM_FILES}/live"
@@ -63,7 +68,7 @@ command -v docker >/dev/null || die "docker not found"
 
 if docker inspect "${CONTAINER}" >/dev/null 2>&1 || [[ -S "${MM_BASE}/minimega" ]]; then
 	[[ "${LIVE_FORCE:-0}" == "1" ]] || die "container ${CONTAINER} or ${MM_BASE}/minimega exists; set LIVE_FORCE=1 to replace it"
-	docker rm -f "${CONTAINER}" >/dev/null 2>&1
+	docker rm -f "${CONTAINER}" "${WEB_CONTAINER}" >/dev/null 2>&1
 fi
 rm -rf "${MM_BASE}"
 mkdir -p "${STAGE}" "${ARTIFACTS}/logs"
@@ -79,6 +84,10 @@ if [[ "${LIVE_PULL:-1}" == "1" ]]; then
 	docker pull -q "${IMAGE}" || die "unable to pull ${IMAGE}"
 fi
 docker image inspect "${IMAGE}" --format 'image {{.Id}} created {{.Created}}' | tee "${ARTIFACTS}/image.txt"
+if [[ -n "${WEB_IMAGE}" ]]; then
+	[[ "${LIVE_PULL:-1}" == "1" ]] && { docker pull -q "${WEB_IMAGE}" || die "unable to pull ${WEB_IMAGE}"; }
+	docker image inspect "${WEB_IMAGE}" --format 'web image {{.Id}} created {{.Created}}' | tee -a "${ARTIFACTS}/image.txt"
+fi
 
 if [[ -n "${LIVE_GUEST_DIR:-}" ]]; then
 	log "using guest image from ${LIVE_GUEST_DIR}"
@@ -120,7 +129,11 @@ cleanup() {
 		return
 	fi
 	docker logs "${CONTAINER}" > "${ARTIFACTS}/logs/container.log" 2>&1 || true
-	docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
+	if [[ -n "${WEB_IMAGE}" ]]; then
+		docker logs "${WEB_CONTAINER}" > "${ARTIFACTS}/logs/web-container.log" 2>&1 || true
+		docker inspect "${WEB_CONTAINER}" --format '{{json .State.Health}}' > "${ARTIFACTS}/logs/web-health.json" 2>&1 || true
+	fi
+	docker rm -f "${WEB_CONTAINER}" "${CONTAINER}" >/dev/null 2>&1 || true
 	# this run created MM_BASE and the artifacts are copied out of it; remove
 	# it so the stale socket does not block the next run
 	rm -rf "${MM_BASE}"
@@ -146,6 +159,7 @@ docker run -d \
 	-e MM_LOGFILE=/var/log/minimega/minimega.log \
 	-e MM_LOGLEVEL="${LIVE_LOGLEVEL:-info}" \
 	--health-cmd "mm version" \
+	${WEB_IMAGE:+--init} \
 	"${IMAGE}" >/dev/null || die "unable to start container"
 
 for _ in $(seq 1 60); do
@@ -153,6 +167,28 @@ for _ in $(seq 1 60); do
 	sleep 2
 done
 mm version || { docker logs "${CONTAINER}" | tail -50; die "minimega did not start"; }
+
+# A separate miniweb container, as docker/docker-compose.yml defines it: it
+# shares minimega's network namespace (so published port 9001 reaches it) and
+# the command socket directory, with no capabilities and a read-only root.
+if [[ -n "${WEB_IMAGE}" ]]; then
+	log "starting ${WEB_CONTAINER}"
+	docker run -d \
+		--name "${WEB_CONTAINER}" \
+		--network "container:${CONTAINER}" \
+		--init \
+		--cap-drop ALL \
+		--security-opt no-new-privileges:true \
+		--read-only \
+		--tmpfs /tmp \
+		-v "${MM_BASE}:${MM_BASE}" \
+		-v "${ARTIFACTS}/logs:/var/log/minimega" \
+		-e MINIWEB_BASE="${MM_BASE}" \
+		-e MINIWEB_CONSOLE=/console-attach.sh \
+		--health-cmd 'bash -c "exec 3<>/dev/tcp/127.0.0.1/9001"' \
+		"${WEB_IMAGE}" >/dev/null || die "unable to start ${WEB_CONTAINER}"
+	export LIVE_MINIWEB_CONSOLE=1
+fi
 
 # --- load the topology through the CLI ---------------------------------------
 
