@@ -378,6 +378,51 @@ func TestVNCRecordingsStopOnKillAndFlush(t *testing.T) {
 	}
 }
 
+// TestVNCRecordingsStopOnFlushAll checks that FlushAll, which "vm flush" with
+// no target and "clear namespace" call, stops a recording of a VM that quit.
+func TestVNCRecordingsStopOnFlushAll(t *testing.T) {
+	originalBase := *f_base
+	*f_base = t.TempDir()
+	t.Cleanup(func() { *f_base = originalBase })
+
+	addr := fakeRFBServer(t)
+	dir := t.TempDir()
+
+	ns := &Namespace{Name: "test", Recorder: vnc.NewRecorder(), Player: vnc.NewPlayer("")}
+	ns.VMs = VMs{m: map[int]VM{}, stopVNC: ns.stopVMRecordings}
+	t.Cleanup(ns.Player.Clear)
+
+	vm := testRunningKVM(t, 1, "vm-0", ns.Name)
+	ns.VMs.m[1] = vm
+
+	if err := ns.VMs.Kill("vm-0"); err != nil {
+		t.Fatalf("kill: %v", err)
+	}
+
+	// a recording that starts after the kill stops on FlushAll
+	if err := ns.Recorder.RecordKB("vm-0", addr, filepath.Join(dir, "1.kb")); err != nil {
+		t.Fatal(err)
+	}
+
+	alias := filepath.Join(*f_base, "namespaces", ns.Name, vm.UUID)
+	if err := os.MkdirAll(filepath.Dir(alias), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(alias, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ns.VMs.FlushAll(nil); err != nil {
+		t.Fatalf("flush all: %v", err)
+	}
+	if info := ns.Recorder.Info(); len(info) != 0 {
+		t.Fatalf("recordings after flush all: %q", info)
+	}
+	if len(ns.VMs.m) != 0 {
+		t.Fatalf("VMs after flush all: %v", len(ns.VMs.m))
+	}
+}
+
 // The VNC recordings of a VM stop when the guest shuts down, so that a VM
 // that is launched again with the same name can record.
 func TestVNCRecordingsStopOnGuestExit(t *testing.T) {
