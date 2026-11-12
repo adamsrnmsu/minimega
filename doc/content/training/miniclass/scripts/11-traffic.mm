@@ -30,7 +30,8 @@ router router commit
 vm start router
 shell sleep 10
 vm start all
-shell sleep 30
+# wait until every VM has a connected agent and an address (about 90 s)
+shell timeout 300 sh -c "until minimega -e .annotate false .columns cc_active,ip namespace sandwich vm info 2>/dev/null | grep -c 'true.*10[.]' | grep -qx 3; do sleep 3; done"
 .annotate false .columns name,state,ip vm info
 
 # put protonuke where cc send can find it, then send it to every client;

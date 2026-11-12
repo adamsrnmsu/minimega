@@ -51,8 +51,10 @@ router router2 commit
 vm start router,router2
 shell sleep 15
 vm start all
+# wait until every VM has a connected agent and an address (about 90 s)
+shell timeout 300 sh -c "until minimega -e .annotate false .columns cc_active,ip namespace sandwich vm info 2>/dev/null | grep -c 'true.*10[.]' | grep -qx 5; do sleep 3; done"
 # OSPF needs a little while to form its adjacency and exchange routes
-shell sleep 45
+shell sleep 30
 
 .annotate false .columns name,vlan vm info
 router router

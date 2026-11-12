@@ -188,6 +188,7 @@ properly.
 minimega$ namespace sandwich
 minimega$ vm config kernel miniccc.kernel
 minimega$ vm config initrd miniccc.initrd
+minimega$ vm config memory 3072
 minimega$ vm launch kvm client_test
 minimega$ vm config kernel minirouter.kernel
 minimega$ vm config initrd minirouter.initrd
@@ -195,9 +196,18 @@ minimega$ vm launch kvm router_test
 minimega$ vm start all
 ```
 
-Give the guests half a minute. The images' `init` waits ten seconds for
+Give the guests a minute or two. The images' `init` waits ten seconds for
 devices to settle before it starts anything, so `cc_active`, the column that
-says whether a miniccc agent is connected, takes a moment to turn `true`:
+says whether a miniccc agent is connected, takes a while to turn `true`. A
+`shell` loop can wait for it; it asks minimega every three seconds until two
+VMs report `true`, and gives up after five minutes ([chapter
+3](03-router-sandwich.md#start-in-order) explains it):
+
+```minimega
+minimega$ shell timeout 300 sh -c "until minimega -e .annotate false .columns cc_active,ip namespace sandwich vm info 2>/dev/null | grep -c 'true' | grep -qx 2; do sleep 3; done"
+```
+
+Then look:
 
 ```minimega
 minimega$ .annotate false .columns name,state,cc_active vm info
