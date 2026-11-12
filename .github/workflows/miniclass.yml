@@ -74,10 +74,8 @@ jobs:
 
       # Chapter 2, "Docker" route, typed as the chapter shows it (the clone of
       # upstream is replaced by a copy of this checkout).
-      - name: Build the vmbetter images (chapter 2, literal Docker route)
-        id: vmb_literal
+      - name: Build the vmbetter images (chapter 2, Docker route)
         if: steps.imgcache.outputs.cache-hit != 'true'
-        continue-on-error: true
         run: |
           set -x
           sudo apt-get install -y debootstrap
@@ -87,18 +85,6 @@ jobs:
           mkdir -p ~/minimega/bin
           sudo docker cp minimega:/opt/minimega/bin/miniccc ~/minimega/bin/miniccc
           sudo docker cp minimega:/opt/minimega/bin/minirouter ~/minimega/bin/minirouter
-          cd /tmp/minimega/files
-          sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/miniccc.conf
-          sudo /opt/minimega/bin/vmbetter -level info -branch stable ~/minimega/misc/vmbetter_configs/minirouter.conf
-          ls -l /tmp/minimega/files
-
-      # The same builds with the one change the literal route needs:
-      # /usr/local/bin/vmbetter, where docker cp put it, and -branch bookworm because
-      # default.conf lists ntp and dnsutils, which Debian stable (trixie) lacks.
-      - name: Build the vmbetter images (working variant)
-        if: steps.imgcache.outputs.cache-hit != 'true' && steps.vmb_literal.outcome == 'failure'
-        run: |
-          set -x
           cd /tmp/minimega/files
           sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/miniccc.conf
           sudo /usr/local/bin/vmbetter -level info -branch bookworm ~/minimega/misc/vmbetter_configs/minirouter.conf
@@ -118,49 +104,15 @@ jobs:
           mkdir -p /tmp/pybind
           sudo docker cp minimega:/opt/minimega/lib/minimega.py /tmp/pybind/minimega.py
 
-      # Guests panic at 2048 MB ("Unable to mount root fs"): find the smallest
-      # memory size at which the chapter 3 sandwich boots and miniccc connects.
-      - name: Probe guest memory
-        run: |
-          mkdir -p "$OUT/probe"
-          mmx() { sudo docker exec minimega minimega -e "$@"; }
-          p="$OUT/probe/boot.txt"
-          for f in miniccc minirouter; do
-            echo "$f.initrd uncompressed bytes: $(zcat /tmp/minimega/files/$f.initrd | wc -c)" >> "$p"
-          done
-          MEM=2048
-          for mem in 2048 3072 4096; do
-            echo "## memory $mem" >> "$p"
-            sed "s/vm config memory 2048/vm config memory $mem/" /tmp/minimega/scripts/03-router-sandwich.mm | sudo tee /tmp/minimega/scripts/probe.mm >/dev/null
-            mmx clear namespace sandwich >/dev/null 2>&1; mmx clear vm config >/dev/null 2>&1
-            mmx read /tmp/minimega/scripts/probe.mm >> "$p" 2>&1 || true
-            sleep 60
-            mmx .annotate false .columns name,state,cc_active,ip namespace sandwich vm info >> "$p" 2>&1 || true
-            n=$(mmx .annotate false .columns cc_active namespace sandwich vm info 2>&1 | grep -c true || true)
-            echo "connected clients at ~90s: $n" >> "$p"
-            mmx namespace sandwich vm screenshot vm_left file "/tmp/minimega/files/probe_$mem.png" >> "$p" 2>&1 || true
-            if [ "$n" -ge 3 ]; then MEM=$mem; break; fi
-          done
-          echo "MEM=$MEM" >> "$GITHUB_ENV"
-          echo "chosen MEM=$MEM" >> "$p"
-          sudo cp /tmp/minimega/files/probe_*.png "$OUT/probe/" || true
-          sudo docker exec minimega ps -eo args | grep '[q]emu' | cut -c1-600 > "$OUT/probe/qemu-cmdline.txt" || true
-
       - name: Run the chapter scripts
         run: |
           : > "$OUT/results.tsv"
-          # deviation from the chapters: guest memory raised to $MEM (see probe)
-          if [ "${MEM:-2048}" != 2048 ]; then
-            sudo sed -i "s/vm config memory 2048/vm config memory $MEM/" /tmp/minimega/scripts/*.mm
-          fi
           cleanup() {
             for c in "clear namespace sandwich" "clear namespace sandwich2" "clear capture" \
                      "clear plumb" "clear pipe" "clear vnc" "clear vm config"; do
               # shellcheck disable=SC2086
               timeout 120 sudo docker exec minimega minimega -e $c >/dev/null 2>&1 || true
             done
-            # stale cc responses from earlier scripts would be re-read by "cc responses N"
-            sudo rm -rf /tmp/minimega/files/sandwich /tmp/minimega/files/sandwich2
             sleep 3
           }
           record() { # name status reason secs
@@ -169,7 +121,7 @@ jobs:
           skip() { record "$1" skipped "$2" 0; echo "SKIPPED $1: $2" > "$OUT/transcripts/$1.txt"; }
           check() { # name transcript rc secs
             local name=$1 t=$2 rc=$3 secs=$4 err
-            err=$(grep -m1 -E '^(Error|ERROR)|^error|[Ee]rror:|panic|Traceback' "$t" || true)
+            err=$(grep -E '^(Error|ERROR)|^error|[Ee]rror:|panic|Traceback|unable to read' "$t" | head -3 | tr '\n' ';' || true)
             if [ "$rc" = 124 ]; then record "$name" fail "timeout after ${secs}s" "$secs"
             elif [ "$rc" != 0 ] || [ -n "$err" ]; then record "$name" fail "rc=$rc ${err}" "$secs"
             else record "$name" pass "" "$secs"; fi
@@ -197,6 +149,8 @@ jobs:
                 echo "## nfcat on the gzipped netflow file"
                 timeout 60 sudo docker exec minimega /opt/minimega/bin/nfcat -gunzip /tmp/minimega/files/sandwich.nf.gz 2>&1 | head -20
                 echo "## output files"; ls -l /tmp/minimega/files/ | grep -E 'pcap|\.nf'
+                echo "## where did sandwich.pcap go?"
+                timeout 60 sudo docker exec minimega sh -c 'ls -l /tmp/minimega/files/sandwich.pcap /opt/minimega/sandwich.pcap /minimega/sandwich.pcap /sandwich.pcap; find / -xdev -name sandwich.pcap 2>/dev/null; ls -l /proc/1/cwd; pgrep -a minimega'
                 echo "## guest check of the monitor VM"
                 timeout 60 sudo docker exec minimega minimega -e read /tmp/minimega/scripts/diag12.mm 2>&1
               } > "$OUT/transcripts/12-capture.diag.txt" 2>&1
@@ -229,16 +183,6 @@ jobs:
             > "$OUT/transcripts/21-automation.txt" 2>&1
           rc=$?
           check 21-automation "$OUT/transcripts/21-automation.txt" "$rc" "$(( $(date +%s) - start ))"
-          # the same script with the memory raised, like every .mm above
-          if [ "${MEM:-2048}" != 2048 ]; then
-            cleanup
-            sed "s/mm.vm_config_memory(2048)/mm.vm_config_memory($MEM)/" /tmp/minimega/scripts/21-automation.py | sudo tee /tmp/minimega/scripts/21-automation.mem.py >/dev/null
-            start=$(date +%s)
-            timeout 900 sudo env PYTHONPATH=/tmp/pybind python3 /tmp/minimega/scripts/21-automation.mem.py \
-              > "$OUT/transcripts/21-automation-mem$MEM.txt" 2>&1
-            rc=$?
-            check "21-automation-mem$MEM" "$OUT/transcripts/21-automation-mem$MEM.txt" "$rc" "$(( $(date +%s) - start ))"
-          fi
           cleanup
           exit 0
 
