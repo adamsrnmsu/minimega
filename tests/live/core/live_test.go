@@ -1105,7 +1105,7 @@ func testKillFlushRelaunch(t *testing.T) {
 	harness.CCOK(t, "host-a6", "ping -c 2 -W 2 10.10.1.1")
 
 	r := harness.VMInfo(t)["host-a6"]
-	if r["memory"] != "192" || !strings.Contains(r["tags"], `"lan":"a"`) || !strings.HasPrefix(harness.List(r["vlan"])[0], "lan-a") {
+	if r["memory"] != specFor("host-a4").Memory || !strings.Contains(r["tags"], `"lan":"a"`) || !strings.HasPrefix(harness.List(r["vlan"])[0], "lan-a") {
 		t.Errorf("host-a6 did not inherit host-a4's config: memory=%v tags=%v vlan=%v", r["memory"], r["tags"], r["vlan"])
 	}
 	if r["uuid"] == harness.VMInfo(t)["host-a4"]["uuid"] {

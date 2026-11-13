@@ -35,15 +35,15 @@ var topology = func() []vmSpec {
 
 	vms = append(vms,
 		vmSpec{Name: "rtr-ab", VLANs: []string{"lan-a", "lan-b"}, IPs: []string{"10.10.1.1", "10.10.2.1"},
-			Memory: "256", VCPUs: "1", CC: true, Router: true, Tags: map[string]string{"role": "router"}},
+			Memory: "448", VCPUs: "1", CC: true, Router: true, Tags: map[string]string{"role": "router"}},
 		vmSpec{Name: "rtr-cd", VLANs: []string{"lan-b", "lan-c", "lan-d"}, IPs: []string{"10.10.2.2", "10.10.3.1", "10.10.4.1"},
-			Memory: "256", VCPUs: "1", CC: true, Router: true, Tags: map[string]string{"role": "router"}},
+			Memory: "448", VCPUs: "1", CC: true, Router: true, Tags: map[string]string{"role": "router"}},
 	)
 
 	for i := 1; i <= 5; i++ {
 		vms = append(vms, vmSpec{
 			Name: "host-a" + itoa(i), VLANs: []string{"lan-a"}, IPs: []string{""}, Subnet: "10.10.1.",
-			Memory: "192", VCPUs: "1", CC: true, Tags: map[string]string{"role": "client", "lan": "a"},
+			Memory: "384", VCPUs: "1", CC: true, Tags: map[string]string{"role": "client", "lan": "a"},
 		})
 	}
 	for i := 1; i <= 5; i++ {
@@ -53,24 +53,24 @@ var topology = func() []vmSpec {
 		}
 		vms = append(vms, vmSpec{
 			Name: "host-b" + itoa(i), VLANs: []string{"lan-b"}, IPs: []string{"10.10.2.1" + itoa(i)},
-			Memory: "160", VCPUs: vcpus, CC: true, Tags: map[string]string{"role": "client", "lan": "b"},
+			Memory: "352", VCPUs: vcpus, CC: true, Tags: map[string]string{"role": "client", "lan": "b"},
 		})
 	}
 	for i := 1; i <= 5; i++ {
 		vms = append(vms, vmSpec{
 			Name: "host-c" + itoa(i), VLANs: []string{"lan-c"}, IPs: []string{"10.10.3.1" + itoa(i)},
-			Memory: "192", VCPUs: "1", CC: true, Tags: map[string]string{"role": "server", "lan": "c"},
+			Memory: "384", VCPUs: "1", CC: true, Tags: map[string]string{"role": "server", "lan": "c"},
 		})
 	}
 	for i := 1; i <= 4; i++ {
 		vms = append(vms, vmSpec{
 			Name: "host-d" + itoa(i), VLANs: []string{"lan-d"}, IPs: []string{"10.10.4.1" + itoa(i)},
-			Memory: "192", VCPUs: "1", CC: i != 4, Tags: map[string]string{"role": "server", "lan": "d"},
+			Memory: "384", VCPUs: "1", CC: i != 4, Tags: map[string]string{"role": "server", "lan": "d"},
 		})
 	}
 	vms = append(vms, vmSpec{
 		Name: "host-d5", VLANs: []string{"lan-d", "lan-c"}, IPs: []string{"10.10.4.15", "10.10.3.16"},
-		Memory: "192", VCPUs: "1", CC: true, Tags: map[string]string{"role": "server", "lan": "d"},
+		Memory: "384", VCPUs: "1", CC: true, Tags: map[string]string{"role": "server", "lan": "d"},
 	})
 
 	return vms

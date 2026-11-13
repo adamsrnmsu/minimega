@@ -41,7 +41,7 @@ disk create qcow2 live/data.qcow2 64M
 clear vm config
 vm config kernel live/live.kernel
 vm config initrd live/live.initrd
-vm config memory 192
+vm config memory 384
 vm config vcpus 1
 vm config snapshot true
 vm config tags topology live
@@ -49,7 +49,7 @@ vm config save live-base
 
 # --- routers -----------------------------------------------------------------
 
-vm config memory 256
+vm config memory 448
 vm config schedule minimega
 vm config tags role router
 
@@ -87,7 +87,7 @@ vm launch kvm host-a[2-5]
 # --- lan-b: static DHCP by MAC, mixed NIC drivers and SMP --------------------
 
 vm config restore live-base
-vm config memory 160
+vm config memory 352
 vm config tags role client
 vm config tags lan b
 

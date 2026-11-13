@@ -9,7 +9,7 @@
 #
 # Steps:
 #   1. pull the image (the one CI published, by default)
-#   2. build the KVM guest kernel/initrd inside that image (tests/live/image)
+#   2. build the KVM guest kernel/initrd with the image's vmbetter (tests/live/image/live.conf)
 #   3. start minimega from the image exactly as docker/README.md documents
 #   4. load tests/live/$LIVE_GROUP/topology.mm with "mm read" (the CLI path)
 #   5. run the Go tests in tests/live/$LIVE_GROUP over the command socket (the phenix path)
@@ -112,13 +112,28 @@ if [[ -n "${LIVE_GUEST_DIR:-}" ]]; then
 	log "using guest image from ${LIVE_GUEST_DIR}"
 	cp "${LIVE_GUEST_DIR}/live.kernel" "${LIVE_GUEST_DIR}/live.initrd" "${STAGE}/" || die "no guest image in ${LIVE_GUEST_DIR}"
 else
-	log "building guest image"
-	docker run --rm \
-		-v "${SCRIPT_DIR}/image:/src:ro" \
-		-v "${STAGE}:/out" \
-		"${IMAGE}" bash /src/build.sh /out > "${ARTIFACTS}/logs/guest-build.log" 2>&1 \
-		|| { tail -50 "${ARTIFACTS}/logs/guest-build.log"; die "guest image build failed"; }
-	tail -2 "${ARTIFACTS}/logs/guest-build.log"
+	# Build with the vmbetter that ships in the image, against a staged copy of
+	# the overlay holding the image's own agents (so the guest runs the binaries
+	# under test). debootstrap needs root and mounts, hence --privileged.
+	log "building guest image with vmbetter"
+	BUILD_DIR="$(mktemp -d)"
+	cp -r "${SCRIPT_DIR}/image/live.conf" "${SCRIPT_DIR}/image/overlay" "${BUILD_DIR}/"
+	build_start=$(date +%s)
+	docker run --rm --privileged -v "${BUILD_DIR}:/build" -w /build "${IMAGE}" bash -euxc '
+		export DEBIAN_FRONTEND=noninteractive
+		apt-get update -qq
+		apt-get install -y -qq --no-install-recommends debootstrap ca-certificates wget cpio gzip xz-utils >/dev/null
+		mkdir -p overlay/usr/bin
+		cp /opt/minimega/bin/miniccc /opt/minimega/bin/minirouter /opt/minimega/bin/protonuke overlay/usr/bin/
+		/opt/minimega/bin/vmbetter -branch bookworm -mirror https://deb.debian.org/debian -debootstrap-append=--no-check-gpg -O live live.conf
+	' > "${ARTIFACTS}/logs/guest-build.log" 2>&1 \
+		|| { tail -50 "${ARTIFACTS}/logs/guest-build.log"; rm -rf "${BUILD_DIR}"; die "guest image build failed"; }
+	mv "${BUILD_DIR}/live.kernel" "${BUILD_DIR}/live.initrd" "${STAGE}/" || die "vmbetter produced no live.kernel/live.initrd"
+	# keep the guest as an artifact, for LIVE_GUEST_DIR runs on hosts that cannot build it
+	mkdir -p "${ARTIFACTS}/guest" && cp "${STAGE}/live.kernel" "${STAGE}/live.initrd" "${ARTIFACTS}/guest/"
+	rm -rf "${BUILD_DIR}"
+	grep -E 'unpacked rootfs|bundled' "${ARTIFACTS}/logs/guest-build.log"
+	log "guest image built in $(( $(date +%s) - build_start ))s: $(du -h "${STAGE}/live.initrd" | cut -f1) initrd, $(du -h "${STAGE}/live.kernel" | cut -f1) kernel"
 fi
 
 # Host overrides go into the common VM configuration, right after the first

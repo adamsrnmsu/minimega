@@ -123,7 +123,8 @@ and drives them over the command socket; CI runs it after the Docker workflow
 publishes an image. It needs root, Docker, `/dev/kvm`, and the `openvswitch`
 module. Each test group is a sub-folder (a `topology.mm` plus its `//go:build
 live` Go tests); `tests/live/harness/` is the shared helper package, and
-`tests/live/core/` is the 22-VM group. See
+`tests/live/core/` is the 22-VM group; the guest image is built by the
+image's own `vmbetter` from `tests/live/image/live.conf`. See
 [`tests/live/README.md`](tests/live/README.md).
 
 ```bash

@@ -30,11 +30,15 @@ flowchart LR
    requests, which cannot push). Run by hand (`gh workflow run live.yml --ref
    <branch>`, also on a fork) the workflow builds the dispatched branch and
    tests that; its optional `image` input tests an existing image instead.
-2. **Guest image** — `image/build.sh` runs *inside that image* and packs a
-   stock Ubuntu kernel with a ~15 MB busybox initramfs containing the
-   image's own `miniccc`, `minirouter`, and `protonuke`, plus `bird`,
-   `dnsmasq`, and `iptables` for routers. It boots in seconds and needs
-   160–256 MB of RAM, so 22 VMs fit on a standard runner.
+2. **Guest image** — `run.sh` runs the `vmbetter` shipped *in that image*
+   (in a privileged container with `debootstrap`) on `image/live.conf`: a
+   Debian bookworm kernel plus a busybox initramfs with `bird`, `dnsmasq`, and
+   `iptables` for routers, and the image's own `miniccc`, `minirouter`, and
+   `protonuke` copied into the overlay first. `live.conf` has no parent
+   (`default.conf` makes a 360 MB initrd that needs ~3 GB per VM). The boot
+   scripts are in `image/overlay/`. The unpacked rootfs is ~100 MiB and an
+   initramfs lives in RAM (it may use about half of it), so the guests get
+   352–448 MB each: 22 VMs take ~8.5 GB of a standard runner's 16 GB.
 3. **Deployment** — the container starts with the flags from
    `docker/README.md` (privileged, `/dev`, `/lib/modules`, `/tmp/minimega`).
 4. **Topology** — the group's `topology.mm` is loaded with `mm read`, exercising the CLI
@@ -47,7 +51,7 @@ flowchart LR
 ```
 tests/live/
   run.sh        run one group against a Docker image
-  image/        builds the guest kernel and initramfs
+  image/        vmbetter config (live.conf) and overlay for the guest kernel and initramfs
   harness/      package harness: shared helpers (socket client, cc, polling,
                 artifact parsers) and their offline unit tests
   core/         the 22-VM test group: topology.mm, topology_test.go, live_test.go
@@ -161,8 +165,9 @@ pcap.
 ### Without x86 KVM (e.g. an arm64 host)
 
 The guests are x86. On a host that cannot run them under KVM, run them in
-QEMU's TCG emulator and supply an x86 guest image built elsewhere (`build.sh`
-packs the image's own binaries, so an arm64 image yields an arm64 guest):
+QEMU's TCG emulator and supply an x86 guest image. `vmbetter` builds an x86 guest from the
+image's own binaries only on x86, so take the `guest/` directory (`live.kernel`
+and `live.initrd`) from the `live-test-artifacts` artifact of a CI run:
 
 ```bash
 sudo LIVE_PULL=0 LIVE_GUEST_DIR=/path/to/x86-guest \
