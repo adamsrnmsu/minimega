@@ -123,8 +123,9 @@ and drives them over the command socket; CI runs it after the Docker workflow
 publishes an image. It needs root, Docker, `/dev/kvm`, and the `openvswitch`
 module. Each test group is a sub-folder (a `topology.mm` plus its `//go:build
 live` Go tests); `tests/live/harness/` is the shared helper package, and
-`tests/live/core/` is the 22-VM group; the guest image is built by the
-image's own `vmbetter` from `tests/live/image/live.conf`. See
+`tests/live/core/` is the 22-VM group and `tests/live/examples/` runs every
+`.mm` example under `doc/content`; the guest image is built by the image's
+own `vmbetter` from `tests/live/image/live.conf`. See
 [`tests/live/README.md`](tests/live/README.md).
 
 ```bash
@@ -135,7 +136,9 @@ GOFLAGS=-mod=vendor go vet -tags live ./tests/live/...
 Keep each group's `topology.mm` and `topology_test.go` in sync (for example
 `tests/live/core/topology.mm` and `tests/live/core/topology_test.go`), and
 extend the live tests when a change affects VM lifecycle, networking,
-minirouter, or miniccc behavior.
+minirouter, or miniccc behavior. Adding or renaming a `.mm` example under
+`doc/content` needs a matching entry in `tests/live/examples/table.go`; the
+offline test `go test ./tests/live/examples` says what to add.
 
 ## Change conventions
 

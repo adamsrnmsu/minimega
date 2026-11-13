@@ -220,6 +220,8 @@ log "topology loaded in $(( $(date +%s) - start ))s"
 
 export LIVE_MM_BASE="${MM_BASE}" LIVE_MM_FILES="${MM_FILES}" LIVE_CONTAINER="${CONTAINER}"
 export LIVE_NAMESPACE="${NAMESPACE}" LIVE_ARTIFACTS="${ARTIFACTS}"
+# the examples group reads the documentation examples from here
+export LIVE_DOC_ROOT="${ROOT_DIR}/doc/content"
 
 log "running tests"
 # shellcheck disable=SC2086
@@ -258,13 +260,13 @@ fi
 	echo
 	echo "| result | test | time |"
 	echo "|---|---|---|"
-	grep -E '^\s*--- (PASS|FAIL|SKIP): TestLive/' "${ARTIFACTS}/live-test.log" |
-		sed -E 's/^\s*--- (PASS|FAIL|SKIP): TestLive\/(\S+) \(([^)]*)\).*/| \1 | \2 | \3 |/' |
+	grep -E '^\s*--- (PASS|FAIL|SKIP): Test[A-Za-z]+/' "${ARTIFACTS}/live-test.log" |
+		sed -E 's/^\s*--- (PASS|FAIL|SKIP): Test[A-Za-z]+\/(\S+) \(([^)]*)\).*/| \1 | \2 | \3 |/' |
 		sed -e 's/^| PASS/| ✅ pass/' -e 's/^| FAIL/| ❌ fail/' -e 's/^| SKIP/| ⏭️ skip/'
 	echo
-	echo "Totals: $(grep -cE '^\s*--- PASS: TestLive/' "${ARTIFACTS}/live-test.log") passed," \
-		"$(grep -cE '^\s*--- FAIL: TestLive/' "${ARTIFACTS}/live-test.log") failed," \
-		"$(grep -cE '^\s*--- SKIP: TestLive/' "${ARTIFACTS}/live-test.log") skipped"
+	echo "Totals: $(grep -cE '^\s*--- PASS: Test[A-Za-z]+/' "${ARTIFACTS}/live-test.log") passed," \
+		"$(grep -cE '^\s*--- FAIL: Test[A-Za-z]+/' "${ARTIFACTS}/live-test.log") failed," \
+		"$(grep -cE '^\s*--- SKIP: Test[A-Za-z]+/' "${ARTIFACTS}/live-test.log") skipped"
 } > "${ARTIFACTS}/summary.md"
 [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && cat "${ARTIFACTS}/summary.md" >> "${GITHUB_STEP_SUMMARY}"
 

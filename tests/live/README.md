@@ -55,6 +55,8 @@ tests/live/
   harness/      package harness: shared helpers (socket client, cc, polling,
                 artifact parsers) and their offline unit tests
   core/         the 22-VM test group: topology.mm, topology_test.go, live_test.go
+  examples/     the documentation examples: table.go, live_test.go, and an
+                offline meta test (sync_test.go)
 ```
 
 Each test group is a sub-folder holding its `topology.mm` and the Go tests
@@ -133,6 +135,52 @@ phases (screenshots, QMP, serial, ...) still run.
 | Teardown | `clear namespace` removes VMs, QEMU processes, and OVS ports |
 
 Out of scope: containers, Android, bare-metal VMs, and multi-node meshes.
+
+## Documentation examples (examples group)
+
+`examples/` runs every downloadable `.mm` example under `doc/content` (not
+`releases/` or `presentations/`) so the docs keep working. The `.mm` files are
+read from `doc/content` at test time, never copied.
+
+Each example runs in its own namespace, line by line over the command socket,
+as written, except that immediately before every `vm launch kvm` the harness
+overrides the kernel and initrd (the vmbetter live guest), memory (384 MB),
+vCPUs (1), and clears the disks and cdrom. A kernel named `minirouter*` boots
+as a router. Names, networks, UUIDs, tags, and VLANs stay as the example sets
+them. After each example the runner checks that:
+
+- every command succeeded (except lines the table marks as expected to fail);
+- every launched VM is in `vm info` with its configured networks;
+- the VMs are `RUNNING` if the example ran `vm start`;
+- the optional per-example checks hold (`cc exec` responses arrive; the dnsmasq
+  example hands out leases);
+- afterwards no namespace, QEMU or dnsmasq process, tap, or OVS port is left.
+
+Most examples are fragments that assume state (VMs `foo` and `bar` with miniccc
+connected, a router, a running sandwich experiment). `Setups` in
+`examples/table.go` builds that state. `LIVE_GROUP=examples sudo tests/live/run.sh`
+runs the group; CI runs it after `core`.
+
+The meta test `TestTableMatchesDocs` runs in plain `go test ./tests/live/...`
+and fails when the table and the docs disagree: an example with no entry, an
+entry whose file is gone, an unknown setup, an exemption or line rule without a
+reason, or a line rule that no longer matches a line. Its message says what
+to add.
+
+### Adding or changing a doc example
+
+1. Add or edit the `.mm` file under `doc/content` as usual.
+2. Run `GOFLAGS=-mod=vendor go test ./tests/live/examples`. If it complains, add
+   an entry to `Table` in `examples/table.go`: `std(path)` for an example that
+   runs on its own, `frag(path, setup)` for one that assumes state (add a key
+   to `Setups` if none fits), or `exempt(path, reason)` only when it cannot
+   run on a single KVM runner.
+3. Lines that cannot run (guest shell commands, host-mutating `shell`
+   commands, containers) get `.skip(match, reason)`; lines that are known to
+   fail (placeholders such as `<pid>`) get `.fails(match, reason)`. A reason is
+   required. Prefer fixing the example over marking it.
+4. Add `.cc()` if `cc exec` responses should be checked, or `.check(name)` for
+   a bespoke assertion (add it to `Checks` and `extraChecks`).
 
 ## Running locally
 

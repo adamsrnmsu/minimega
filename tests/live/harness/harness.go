@@ -397,6 +397,13 @@ func InContainer(t testing.TB, args ...string) (string, error) {
 	if container == "" {
 		t.Skip("LIVE_CONTAINER not set")
 	}
+	return ContainerOutput(args...)
+}
+
+// ContainerOutput runs a command inside the minimega container and returns
+// its combined output. Unlike InContainer it never skips, so it is safe in
+// cleanup functions.
+func ContainerOutput(args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd := exec.Command("docker", append([]string{"exec", container}, args...)...)
 	cmd.Stdout = &out
