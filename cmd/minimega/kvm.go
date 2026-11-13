@@ -715,52 +715,48 @@ func (vm *KvmVM) Migrate(filename string) error {
 }
 
 func (vm *KvmVM) QueryMigrate() (string, float64, error) {
-	var status string
-	var completed float64
-
 	r, err := vm.q.QueryMigrate()
 	if err != nil {
 		return "", 0.0, err
 	}
 
-	// find the status
-	if s, ok := r["status"]; ok {
-		status = s.(string)
-	} else {
-		// if there is no status, it means that there is no active migration
-		return "", 0.0, nil
-	}
+	return migrateProgress(r)
+}
 
-	var ram map[string]interface{}
+// migrateProgress decodes a QMP query-migrate reply into its status and the
+// percentage of RAM transferred.
+func migrateProgress(r map[string]interface{}) (string, float64, error) {
+	// no status means there is no migration
+	status, _ := r["status"].(string)
+
 	switch status {
+	case "":
+		return "", 0.0, nil
 	case "completed":
-		completed = 100.0
-		return status, completed, nil
-	case "failed":
-		return status, completed, nil
+		return status, 100.0, nil
 	case "active":
-		if e, ok := r["ram"]; !ok {
-			return status, completed, fmt.Errorf("could not decode ram segment: %v", e)
-		} else {
-			switch e.(type) {
-			case map[string]interface{}:
-				ram = e.(map[string]interface{})
-			default:
-				return status, completed, fmt.Errorf("invalid ram type: %v", e)
-			}
-		}
+		// progress below
+	default:
+		// failed, or a state with no RAM figures yet (setup, cancelling, ...)
+		return status, 0.0, nil
 	}
 
-	total := ram["total"].(float64)
-	transferred := ram["transferred"].(float64)
+	ram, ok := r["ram"].(map[string]interface{})
+	if !ok {
+		return status, 0.0, fmt.Errorf("invalid ram segment: %v", r["ram"])
+	}
+
+	total, ok1 := ram["total"].(float64)
+	transferred, ok2 := ram["transferred"].(float64)
+	if !ok1 || !ok2 {
+		return status, 0.0, fmt.Errorf("invalid ram totals: %v", ram)
+	}
 
 	if total == 0.0 {
-		return status, completed, fmt.Errorf("zero total ram!")
+		return status, 0.0, fmt.Errorf("zero total ram!")
 	}
 
-	completed = transferred / total * 100
-
-	return status, completed, nil
+	return status, transferred / total * 100, nil
 }
 
 func (vm *KvmVM) Screenshot(size int) ([]byte, error) {
