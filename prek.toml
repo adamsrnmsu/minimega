@@ -124,7 +124,7 @@ rev = "v2.4.3"
 id = "codespell"
 args = [
   "--ignore-words-list",
-  "ue,ot,ues,fo,nd,ist,te,iif,iam,parm,parms,ser,bord,nin,inout,readded,thru,wan,ans,ro,whitespaces,hax,hda,welp,requestor,checkin,clen,tolen,mone,rightt,admn,bootup,moreso",
+  "ue,ot,ues,fo,nd,ist,te,iif,iam,parm,parms,ser,bord,nin,inout,readded,thru,wan,ans,ro,whitespaces,hax,hda,welp,requestor,checkin,clen,tolen,mone,rightt,admn,bootup,moreso,caf",
   # Large build artifacts, generated minidoc HTML, etc.
   "--skip",
   "lib/dist/*,lib/minimega.egg-info/*,packages/*,packaging/*,bin/*,rpmbuild/*,*.deb,*.rpm,*.tar,*.tar.gz,*.svg,*.lock,go.sum,LICENSES/*,doc/content/articles/*,misc/web/*"

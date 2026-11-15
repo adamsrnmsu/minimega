@@ -225,8 +225,8 @@ type step struct {
 	b          []byte
 }
 
-func fromS(b ...byte) step { return step{true, b} }
-func fromC(b ...byte) step { return step{false, b} }
+func fromSrv(b ...byte) step { return step{true, b} }
+func fromCli(b ...byte) step { return step{false, b} }
 
 func (r *proxyRun) run(t *testing.T, steps ...step) {
 	t.Helper()
@@ -242,12 +242,12 @@ func (r *proxyRun) run(t *testing.T, steps ...step) {
 
 func handshake38() []step {
 	return []step{
-		fromS(rfbVersion(8)...),
-		fromC(rfbVersion(8)...),
-		fromS(1, securityNone),
-		fromC(securityNone),
-		fromS(0, 0, 0, 0),
-		fromC(1),
+		fromSrv(rfbVersion(8)...),
+		fromCli(rfbVersion(8)...),
+		fromSrv(1, securityNone),
+		fromCli(securityNone),
+		fromSrv(0, 0, 0, 0),
+		fromCli(1),
 	}
 }
 
@@ -293,20 +293,20 @@ func TestProxyHandshake(t *testing.T) {
 		steps  []step
 		framed bool
 	}{
-		{"3.3", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(3)...), fromS(0, 0, 0, securityNone), fromC(1)}, true},
-		{"3.4 as 3.3", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(4)...), fromS(0, 0, 0, securityNone), fromC(1)}, true},
-		{"3.5 as 3.3", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(5)...), fromS(0, 0, 0, securityNone), fromC(1)}, true},
-		{"3.7", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(7)...), fromS(1, securityNone), fromC(securityNone), fromC(1)}, true},
+		{"3.3", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(3)...), fromSrv(0, 0, 0, securityNone), fromCli(1)}, true},
+		{"3.4 as 3.3", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(4)...), fromSrv(0, 0, 0, securityNone), fromCli(1)}, true},
+		{"3.5 as 3.3", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(5)...), fromSrv(0, 0, 0, securityNone), fromCli(1)}, true},
+		{"3.7", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(7)...), fromSrv(1, securityNone), fromCli(securityNone), fromCli(1)}, true},
 		{"3.8", handshake38(), true},
-		{"3.8 two types", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(8)...), fromS(2, 2, securityNone), fromC(securityNone), fromS(0, 0, 0, 0), fromC(0)}, true},
-		{"3.3 VNC auth", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(3)...), fromS(0, 0, 0, 2)}, false},
-		{"3.7 VNC auth", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(7)...), fromS(1, 2), fromC(2)}, false},
-		{"3.8 VNC auth", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(8)...), fromS(1, 2), fromC(2)}, false},
-		{"3.8 failed result", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(8)...), fromS(1, securityNone), fromC(securityNone), fromS(0, 0, 0, 1)}, false},
-		{"3.8 no types", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(8)...), fromS(0)}, false},
-		{"3.6", []step{fromS(rfbVersion(8)...), fromC(rfbVersion(6)...)}, false},
-		{"4.0", []step{fromS(rfbVersion(8)...), fromC([]byte("RFB 004.000\n")...)}, false},
-		{"malformed", []step{fromS(rfbVersion(8)...), fromC([]byte("hello world\n")...)}, false},
+		{"3.8 two types", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(8)...), fromSrv(2, 2, securityNone), fromCli(securityNone), fromSrv(0, 0, 0, 0), fromCli(0)}, true},
+		{"3.3 VNC auth", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(3)...), fromSrv(0, 0, 0, 2)}, false},
+		{"3.7 VNC auth", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(7)...), fromSrv(1, 2), fromCli(2)}, false},
+		{"3.8 VNC auth", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(8)...), fromSrv(1, 2), fromCli(2)}, false},
+		{"3.8 failed result", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(8)...), fromSrv(1, securityNone), fromCli(securityNone), fromSrv(0, 0, 0, 1)}, false},
+		{"3.8 no types", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(8)...), fromSrv(0)}, false},
+		{"3.6", []step{fromSrv(rfbVersion(8)...), fromCli(rfbVersion(6)...)}, false},
+		{"4.0", []step{fromSrv(rfbVersion(8)...), fromCli([]byte("RFB 004.000\n")...)}, false},
+		{"malformed", []step{fromSrv(rfbVersion(8)...), fromCli([]byte("hello world\n")...)}, false},
 	}
 
 	for _, c := range cases {
@@ -559,7 +559,7 @@ func TestProxyContextCancel(t *testing.T) {
 func TestProxyHandshakeDeadline(t *testing.T) {
 	opts := ProxyOptions{Name: "vm-" + t.Name(), handshakeTimeout: 100 * time.Millisecond}
 	r := startPipeProxy(t, opts)
-	r.run(t, fromS(rfbVersion(8)...))
+	r.run(t, fromSrv(rfbVersion(8)...))
 
 	if err := r.wait(t); !errors.Is(err, os.ErrDeadlineExceeded) {
 		t.Fatalf("Proxy returned %v, want a deadline error", err)
@@ -574,7 +574,7 @@ func TestProxyClearsHandshakeDeadline(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	r.run(t, fromC(encode(t, &KeyEvent{DownFlag: 1, Key: 'a'})...), fromS(TypeBell))
+	r.run(t, fromCli(encode(t, &KeyEvent{DownFlag: 1, Key: 'a'})...), fromSrv(TypeBell))
 	select {
 	case err := <-r.done:
 		t.Fatalf("Proxy returned %v after the handshake", err)
@@ -894,12 +894,12 @@ func TestProxyNoVNCSession(t *testing.T) {
 	shim, qemu := unixPair(t)
 	r := startProxy(t, opts, shim, qemu)
 	r.run(t,
-		fromS(rfbVersion(8)...),
-		fromC(capture[:12]...),
-		fromS(1, securityNone),
-		fromC(capture[12]),
-		fromS(0, 0, 0, 0),
-		fromC(capture[13]),
+		fromSrv(rfbVersion(8)...),
+		fromCli(capture[:12]...),
+		fromSrv(1, securityNone),
+		fromCli(capture[12]),
+		fromSrv(0, 0, 0, 0),
+		fromCli(capture[13]),
 	)
 
 	send(t, r.client, r.server, messages, want.Bytes())
