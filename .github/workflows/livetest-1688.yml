@@ -1,0 +1,81 @@
+name: livetest-1688
+
+# Multi-host live test of "clear vlans blacklist" (sandia-minimega/minimega#1688)
+# on a KVM runner: tests/live/multihost/run.sh. The "pr" job builds this
+# branch; the "base" job builds the PR's parent commit as a control for S6.
+
+on:
+  push:
+    branches: [livetest-1688]
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: Scenarios for the pr job
+        required: false
+        default: "S1 S2 S4 S5 S6 S3 S7"
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pr
+            ref: ""
+            scenarios: ""
+          - name: base
+            ref: b719b32da5e9367afb81b05990da57dbb5de10ad
+            scenarios: "S6"
+    steps:
+      - name: Check out the test script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out the code under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.ref || github.sha }}
+          path: src
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+
+      - name: Host support (KVM, Open vSwitch, netem)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          sudo modprobe openvswitch
+          sudo modprobe sch_netem || { sudo apt-get update -qq && sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" && sudo modprobe sch_netem; } || echo "no sch_netem"
+          lsmod | grep -E '^(kvm|openvswitch|sch_netem)'
+          nproc; free -h; uname -r
+
+      - name: Build image
+        run: |
+          git -C src log -1 --format='code under test: %H %s'
+          docker build -q -f src/docker/Dockerfile -t mm1688:test src
+
+      - name: Run multi-host scenarios
+        run: |
+          sudo --preserve-env=GITHUB_STEP_SUMMARY OUT="$GITHUB_WORKSPACE/out" \
+            SCENARIOS="${{ matrix.scenarios || inputs.scenarios || 'S1 S2 S4 S5 S6 S3 S7' }}" \
+            tests/live/multihost/run.sh mm1688:test
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: multihost-${{ matrix.name }}
+          path: out
+          retention-days: 14
