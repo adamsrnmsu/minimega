@@ -1,0 +1,186 @@
+name: Live Tests (Android spike)
+
+# Throwaway spike for issue #1723: can a stock GitHub-hosted runner boot an
+# Android Emulator VM under minimega in the live harness, and how long does it
+# take? Runs the "android" group (tests/live/android) through tests/live/run.sh
+# against an image built from this branch. The SDK and the AVD are installed
+# on the runner and mounted into the container at the same path. When the
+# answers are in, the job moves into live.yml and this file goes away.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [spike-android]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android live tests (KVM)
+    # pinned: ubuntu-latest is moving to 26.04, where the emulator is unmeasured
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      IMAGE: minimega:live
+      # the runner's preinstalled SDK lives in sdk/; the AVD goes next to it.
+      # tests/live/android/topology.mm uses the same paths.
+      ANDROID_DIR: /usr/local/lib/android
+      SYSTEM_IMAGE: system-images;android-34;aosp_atd;x86_64
+    steps:
+      - name: Record job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the image build reads the version from git
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Free disk space
+        run: |
+          # unlike live.yml, keep the Android SDK; drop only its NDK and CMake
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            "$ANDROID_DIR/sdk/ndk" "$ANDROID_DIR/sdk/cmake" || true
+          df -h /
+
+      - name: Check host support (KVM, Open vSwitch)
+        run: |
+          # GitHub-hosted Linux runners expose /dev/kvm; make it usable and
+          # load the Open vSwitch datapath the container's ovs-ctl needs.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          sudo modprobe openvswitch
+          lsmod | grep -E '^(kvm|openvswitch)'
+          nproc; free -h
+
+      - name: Build container image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Install emulator and create the AVD
+        run: |
+          set -euxo pipefail
+          start=$(date +%s)
+          export ANDROID_HOME="$ANDROID_DIR/sdk" ANDROID_SDK_ROOT="$ANDROID_DIR/sdk"
+          # avdmanager and the emulator disagree on the default AVD home on
+          # 24.04 runners; minimega sets the same variable from android-avd-dir
+          export ANDROID_AVD_HOME="$ANDROID_DIR/avd"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sudo mkdir -p "$ANDROID_AVD_HOME"
+          sudo chown "$(id -u)" "$ANDROID_AVD_HOME"
+          yes | sdkmanager --licenses >/dev/null || true
+          # the runner image ships neither the emulator nor any system image
+          sdkmanager --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
+          echo no | avdmanager create avd --force -n mmtest --package "$SYSTEM_IMAGE" --device 'Galaxy Nexus'
+          # cores and memory match "vm config vcpus/memory" in topology.mm; a
+          # small data partition keeps clear of the runner's disk limit
+          printf 'hw.cpu.ncore=2\nhw.ramSize=2560\ndisk.dataPartition.size=2G\n' \
+            >> "$ANDROID_AVD_HOME/mmtest.avd/config.ini"
+          sdkmanager --list_installed
+          cat "$ANDROID_AVD_HOME/mmtest.ini"
+          du -sh "$ANDROID_HOME/emulator" "$ANDROID_HOME/system-images"
+          df -h /
+          echo "TIMING sdk_and_avd_install=$(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Preflight (can the image run the emulator?)
+        run: |
+          # Record what the shipped image is missing, then carry on with a
+          # patched image so that one run still gives launch and boot numbers.
+          # A warning on this step is a lead, not proof: ldd sees only the
+          # library path minimega sets, the emulator launcher may add more.
+          S="$ANDROID_DIR/sdk"
+          pf() {
+            docker run --rm -i --privileged -v /dev:/dev -v "$ANDROID_DIR:$ANDROID_DIR" \
+              -e S="$S" -e ANDROID_SDK_ROOT="$S" \
+              -e LD_LIBRARY_PATH="$S/emulator/lib:$S/emulator/lib64:$S/emulator/lib64/qt/lib" \
+              "$1" bash -s <<'PREFLIGHT' || echo "MISSING preflight container failed"
+          command -v lsmod >/dev/null || echo "MISSING lsmod"
+          lsmod | grep -q kvm || echo "MISSING kvm in lsmod"
+          for b in "$S/emulator/emulator" "$S"/emulator/qemu/linux-x86_64/qemu-system-* "$S/platform-tools/adb"; do
+            echo "== $b"
+            [ -x "$b" ] || { echo "MISSING binary $b"; continue; }
+            ldd "$b" 2>&1 | grep "not found"
+          done
+          "$S/emulator/emulator" -accel-check || echo "MISSING accel"
+          PREFLIGHT
+          }
+          pf "$IMAGE" 2>&1 | tee preflight.txt
+          RUN_IMAGE="$IMAGE"
+          if grep -Eq 'not found|MISSING' preflight.txt; then
+            echo "::warning::preflight flagged the stock image (see preflight.txt); continuing with a patched image"
+            RUN_IMAGE=minimega:live-android
+            printf 'FROM %s\nRUN apt-get update && apt-get install -y --no-install-recommends libxkbfile1\n' "$IMAGE" \
+              | docker build -t "$RUN_IMAGE" -
+            pf "$RUN_IMAGE" 2>&1 | tee preflight-patched.txt
+          fi
+          echo "RUN_IMAGE=$RUN_IMAGE" >> "$GITHUB_ENV"
+          {
+            echo '### Preflight'
+            echo '```'
+            cat preflight*.txt
+            echo '```'
+            echo "Image under test: \`$RUN_IMAGE\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build test binary
+        run: go test -c -tags live -o "$RUNNER_TEMP/live.test" ./tests/live/android
+
+      - name: Run live tests
+        run: |
+          # the android group has no KVM guests: skip run.sh's guest image build
+          mkdir -p "$RUNNER_TEMP/noguest"
+          touch "$RUNNER_TEMP/noguest/live.kernel" "$RUNNER_TEMP/noguest/live.initrd"
+          sudo --preserve-env=GITHUB_STEP_SUMMARY \
+            LIVE_PULL=0 \
+            LIVE_GROUP=android \
+            LIVE_GUEST_DIR="$RUNNER_TEMP/noguest" \
+            LIVE_DOCKER_ARGS="-v $ANDROID_DIR:$ANDROID_DIR" \
+            LIVE_TEST_ARGS="-test.timeout 15m" \
+            LIVE_TEST_BIN="$RUNNER_TEMP/live.test" \
+            LIVE_ARTIFACTS="$GITHUB_WORKSPACE/live-artifacts" \
+            tests/live/run.sh "$RUN_IMAGE"
+
+      - name: Fix artifact permissions
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" live-artifacts || true
+
+      - name: Timings
+        if: always()
+        run: |
+          {
+            echo '### Timings and findings'
+            echo '```'
+            grep -hE 'TIMING|FINDING' live-artifacts/live-test.log || echo "no TIMING/FINDING lines in live-test.log"
+            # the emulator's own figure
+            grep -h 'Boot completed' live-artifacts/android-emulator-*.log live-artifacts/logs/android-emulator.log 2>/dev/null || true
+            echo "TIMING job_total=$(( $(date +%s) - JOB_START ))s"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          df -h /
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-test-artifacts-android
+          # logs/minimega.log, android-emulator-*.log, logcat.txt, live-test.log
+          path: |
+            live-artifacts
+            preflight*.txt
+          retention-days: 14
+          if-no-files-found: warn
