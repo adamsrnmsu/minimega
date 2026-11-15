@@ -56,6 +56,7 @@ tests/live/
   harness/      package harness: shared helpers (socket client, cc, polling,
                 artifact parsers) and their offline unit tests
   core/         the 22-VM test group: topology.mm, topology_test.go, live_test.go
+  android/      the Android Emulator group: topology.mm, android_test.go
 ```
 
 Each test group is a sub-folder holding its `topology.mm` and the Go tests
@@ -133,7 +134,49 @@ phases (screenshots, QMP, serial, ...) still run.
 | VM operations | `vm screenshot` (std and cirrus), `vm serial`, `vm qmp`, `vnc record`, `vm tag` + tag filter, `vm top`, `vm stop/start`, `vm net disconnect/connect`, `vm hotplug add/remove`, `vm save`, `vm kill` + `vm flush` + `vm config clone` + queued relaunch |
 | Teardown | `clear namespace` removes VMs, QEMU processes, and OVS ports |
 
-Out of scope: containers, Android, bare-metal VMs, and multi-node meshes.
+Out of scope: containers, bare-metal VMs, and multi-node meshes. Android VMs
+have their own group, below.
+
+## Android group
+
+`tests/live/android` boots one Android Emulator VM (`vm launch android`) next
+to one KVM router on the same VLAN, and runs as the second job of `live.yml`.
+
+| Area | Checks |
+|---|---|
+| Launch and boot | `vm launch android`, `vm start`, `sys.boot_completed` over adb, guest CPU count, launch and boot times (`TIMING` lines in the test log) |
+| `vm info` | type, state, AVD, console/adb/gRPC ports, adb serial, VLAN, tap on the bridge, `host` Android VM count |
+| Networking | the tap NIC appears in the guest with minimega's MAC; ping phone → KVM router and KVM router → phone; minimega learns the phone's address from the tap |
+| Teardown | `vm kill` leaves no emulator or QEMU process, `vm flush` removes the tap and the instance directory, `clear namespace` |
+
+Android does not configure the tap NIC itself (it stays down, next to the
+emulator's own Wi-Fi), so the tests bring it up as root over adb with a static
+address and a routing rule for the VLAN's subnet.
+
+The emulator, platform-tools, a system image and an AVD are **not** in the
+minimega image. They live on the host and are mounted into the container at
+the same path; `android/topology.mm` expects the SDK in
+`/usr/local/lib/android/sdk` and an AVD named `mmtest` in
+`/usr/local/lib/android/avd`, which is where GitHub's runners keep their SDK.
+CI caches the SDK packages and creates the AVD on every run. Locally, with the
+SDK's `cmdline-tools` on the `PATH`:
+
+```bash
+export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk ANDROID_AVD_HOME=/usr/local/lib/android/avd
+IMG='system-images;android-34;aosp_atd;x86_64'
+sdkmanager --install emulator platform-tools "$IMG"
+echo no | avdmanager create avd -n mmtest --package "$IMG" --device 'Galaxy Nexus'
+printf 'hw.cpu.ncore=2\nhw.ramSize=2560\n' >> "$ANDROID_AVD_HOME/mmtest.avd/config.ini"
+
+sudo LIVE_PULL=0 LIVE_GROUP=android \
+  LIVE_DOCKER_ARGS='-v /usr/local/lib/android:/usr/local/lib/android' \
+  tests/live/run.sh minimega:dev
+```
+
+The image must be able to run the emulator: it needs `libxkbfile1`, which
+`docker/Dockerfile` installs from #1724 on. Until then the CI job checks the
+image first and, if the library is missing, tests a copy of the image with it
+added.
 
 ## Running locally
 
@@ -158,7 +201,8 @@ non-empty `/tmp/minimega` (`LIVE_MM_BASE`), unless `LIVE_FORCE=1` is set, and
 always refuses a base directory that is not an absolute, normalized path at
 least two levels deep or that is a home or system directory; a finished run removes both
 unless `LIVE_KEEP=1` kept them. `LIVE_GROUP=<name>` runs
-the group in `tests/live/<name>`. Results land in
+the group in `tests/live/<name>`, and `LIVE_DOCKER_ARGS` adds `docker run`
+arguments for the minimega container (the android group mounts its SDK with it). Results land in
 `./live-artifacts`: the test log, a Markdown summary, minimega and container
 logs, diagnostics (`vm info`, routers, OVS), cc responses, screenshots, and a
 pcap.

@@ -36,6 +36,8 @@
 #   LIVE_GUEST_DIR        directory with a prebuilt live.kernel and live.initrd
 #                         to use instead of building them in the image (e.g.
 #                         x86 guests on an arm64 host)
+#   LIVE_DOCKER_ARGS      extra "docker run" arguments for the minimega
+#                         container (e.g. -v /sdk:/sdk)
 #   LIVE_QEMU, LIVE_CPU   "vm config qemu" and "vm config cpu" for every VM
 #                         (e.g. /usr/bin/qemu-system-x86_64 and qemu64 to run
 #                         x86 guests without KVM)
@@ -171,6 +173,8 @@ cleanup() {
 		return
 	fi
 	docker logs "${CONTAINER}" > "${ARTIFACTS}/logs/container.log" 2>&1 || true
+	# again for a run that was interrupted before the diagnostics
+	cp "${MM_BASE}"/*/android-emulator.log "${ARTIFACTS}/logs/" 2>/dev/null || true
 	docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
 	# this run created MM_BASE and the artifacts are copied out of it; remove
 	# it so the stale socket does not block the next run
@@ -181,6 +185,7 @@ trap cleanup EXIT
 # Same flags as docker/README.md, plus the hostname topology.mm schedules on
 # and a host-visible log file.
 log "starting ${CONTAINER}"
+# shellcheck disable=SC2086
 docker run -d \
 	--name "${CONTAINER}" \
 	--hostname minimega \
@@ -197,6 +202,7 @@ docker run -d \
 	-e MM_LOGFILE=/var/log/minimega/minimega.log \
 	-e MM_LOGLEVEL="${LIVE_LOGLEVEL:-info}" \
 	--health-cmd "mm version" \
+	${LIVE_DOCKER_ARGS:-} \
 	"${IMAGE}" >/dev/null || die "unable to start container"
 
 for _ in $(seq 1 60); do
@@ -237,12 +243,17 @@ MM_TIMEOUT=30
 	echo "## cc clients"; mm namespace "${NAMESPACE}" cc clients
 	echo "## vlans"; mm namespace "${NAMESPACE}" vlans
 	echo "## taps"; mm namespace "${NAMESPACE}" tap
-	echo "## router rtr-ab"; mm namespace "${NAMESPACE}" router rtr-ab
-	echo "## router rtr-cd"; mm namespace "${NAMESPACE}" router rtr-cd
+	# the routers the group's topology configures
+	grep -oE '^router [A-Za-z0-9_-]+' "${STAGE}/topology.mm" | cut -d' ' -f2 | sort -u | while read -r r; do
+		echo "## router ${r}"; mm namespace "${NAMESPACE}" router "${r}" </dev/null
+	done
 	echo "## host"; mm host
 	echo "## ovs"; timeout 30 docker exec "${CONTAINER}" ovs-vsctl show
 } > "${ARTIFACTS}/diagnostics.txt" 2>&1
 cp -r "${MM_FILES}/${NAMESPACE}/miniccc_responses" "${ARTIFACTS}/" 2>/dev/null || true
+# Android emulator output, before the teardown flushes the instance directories
+# (no-op for groups without Android VMs)
+cp "${MM_BASE}"/*/android-emulator.log "${ARTIFACTS}/logs/" 2>/dev/null || true
 
 if [[ "${LIVE_KEEP:-0}" != "1" ]]; then
 	log "tearing down"
