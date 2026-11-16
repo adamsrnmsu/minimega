@@ -1,0 +1,21 @@
+# PR branch fix-android @ b786340b on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestAndroidRelaunchAfterEarlyErrorSnapshotsDisks
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestAndroidRelaunchAfterEarlyErrorSnapshotsDisks (0.01s)
+    android_test.go:765: relaunch skipped the disk snapshot
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.034s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestAndroidRelaunchAfterEarlyErrorSnapshotsDisks (0.02s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.047s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.396s
+go vet: clean
+gofmt -l: []

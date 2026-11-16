@@ -1,0 +1,24 @@
+# PR branch fix-ron @ d25d1c09 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./internal/ron/ 
+# new/changed tests: TestGetExitCodeWhileClientsChange|TestGuestFileRequestCannotEscapeFilesDir|TestGuestFileUploadCannotEscapeResponseDir|TestGuestMessageWithoutPayloadDropsGuest|TestOldHandlerDoesNotEvictReconnectedClient|TestReaperReleasesExpiredClientPipes
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+internal/ron/server_test.go:466:23: cannot use fresh (variable of type *client) as string value in argument to s.removeClient
+FAIL	github.com/sandia-minimega/minimega/v2/internal/ron [build failed]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestGuestFileUploadCannotEscapeResponseDir (0.11s)
+--- PASS: TestGuestFileRequestCannotEscapeFilesDir (0.10s)
+--- PASS: TestGuestMessageWithoutPayloadDropsGuest (0.21s)
+--- PASS: TestGetExitCodeWhileClientsChange (0.01s)
+--- PASS: TestReaperReleasesExpiredClientPipes (0.01s)
+--- PASS: TestOldHandlerDoesNotEvictReconnectedClient (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/ron	1.453s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/internal/ron	2.262s
+go vet: clean
+gofmt -l: []

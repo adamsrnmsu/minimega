@@ -1,0 +1,27 @@
+# PR branch fix-affinity @ 814a2a8f on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestAddAffinityPinsToCPUNumber|TestClearAffinityFilterKeepsAffinityDisabled|TestDisableAffinityIgnoresDeadPIDs
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestAddAffinityPinsToCPUNumber (0.00s)
+    affinity_test.go:53: cpu 0: exit status 1: taskset: failed to set pid 403's affinity: Invalid argument
+--- FAIL: TestDisableAffinityIgnoresDeadPIDs (0.00s)
+    affinity_test.go:69: exit status 1: taskset: failed to get pid 1073741824's affinity: No such process
+--- FAIL: TestClearAffinityFilterKeepsAffinityDisabled (0.00s)
+    optimize_cli_test.go:25: clear optimize affinity filter enabled affinity
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.034s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestAddAffinityPinsToCPUNumber (0.00s)
+--- PASS: TestDisableAffinityIgnoresDeadPIDs (0.00s)
+--- PASS: TestClearAffinityFilterKeepsAffinityDisabled (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.034s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.400s
+go vet: clean
+gofmt -l: []

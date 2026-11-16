@@ -1,0 +1,29 @@
+# PR branch fix-disk @ db0292b8 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestCLIDiskInfoRecursiveInUsePerImage|TestCLIDiskSnapshotNoDstDoesNotLeak|TestParseFilesDeleteList
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestParseFilesDeleteList (0.00s)
+    disk_test.go:27: parseFiles([foo.txt bar.txt]) = [foo.txt], <nil>; want [foo.txt bar.txt]
+    disk_test.go:27: parseFiles([a b,c]) = [a], <nil>; want [a b c]
+--- FAIL: TestCLIDiskSnapshotNoDstDoesNotLeak (0.00s)
+    disk_test.go:54: leaked 5 file descriptors
+    disk_test.go:57: failed snapshot left 5 temp files behind
+--- FAIL: TestCLIDiskInfoRecursiveInUsePerImage (0.01s)
+    disk_test.go:104: inuse by image = map[/tmp/TestCLIDiskInfoRecursiveInUsePerImage2484434574/001/base.qcow2:false /tmp/TestCLIDiskInfoRecursiveInUsePerImage2484434574/001/top.qcow2:false]; want top false, base true
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.042s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestParseFilesDeleteList (0.00s)
+--- PASS: TestCLIDiskSnapshotNoDstDoesNotLeak (0.00s)
+--- PASS: TestCLIDiskInfoRecursiveInUsePerImage (0.02s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.053s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.409s
+go vet: clean
+gofmt -l: []

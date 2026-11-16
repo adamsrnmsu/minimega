@@ -1,0 +1,23 @@
+== baseline 09:59:53
+-- vm states:
+     9 RUNNING
+-- cc clients: 9
+-- rtu-1 lowergate.open (bennu-probe):
+lima-phenix: 2/99c82351-06c6-410d-a5de-0c09a4a4cfa6/stdout:
+	0
+	0
+	0
+-- opc uaread:
+lima-phenix: 2/43afceee-b1ac-4949-bce2-89de939c07bc/stdout:
+WARNING:asyncua.client.client:Requested session timeout to be 3600000ms, got 600000ms instead
+0.0
+-- historian lock.height rows (5 min):
+lima-phenix: 2/65e60415-a161-4daf-84f3-d3ef12872175/stdout:
+Table: keys: [_start, _stop, rtu]
+                   _start:time                      _stop:time              rtu:string                  _value:int
+2026-11-16T16:55:09.815353968Z  2026-11-16T17:00:09.815353968Z                   rtu-1                          59
+Table: keys: [_start, _stop, rtu]
+                   _start:time                      _stop:time              rtu:string                  _value:int
+2026-11-16T16:55:09.815353968Z  2026-11-16T17:00:09.815353968Z                   rtu-2                          59
+Table: keys: [rtu]
+-- hmi screenshot bytes: 78941

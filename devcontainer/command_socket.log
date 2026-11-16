@@ -1,0 +1,24 @@
+# PR branch fix-command-socket @ 4acf96e0 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestCommandSocketNoStaleStatus|TestCommandSocketStatusRegistration
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestCommandSocketStatusRegistration (2.05s)
+    command_socket_test.go:69: status channels registered = 1, want 2
+--- FAIL: TestCommandSocketNoStaleStatus (0.10s)
+    command_socket_test.go:95: got stale status instead of response: {Resp: Rendered:stale More:false Status:true Suggest:[]}
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	2.184s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestCommandSocketStatusRegistration (0.04s)
+--- PASS: TestCommandSocketNoStaleStatus (0.10s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.177s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.524s
+go vet: clean
+gofmt -l: []

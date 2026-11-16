@@ -1,0 +1,29 @@
+# PR branch fix-powerbot @ dc72d368 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/powerbot/ 
+# new/changed tests: TestReadConfigBadLoglevel|TestReadConfigShortLines|TestReadConfigValidNodes
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestReadConfigShortLines (0.00s)
+    powerbot_test.go:28: "node n1": readConfig panicked: runtime error: index out of range [2] with length 2
+    powerbot_test.go:28: "node n1 pdu1": readConfig panicked: runtime error: index out of range [3] with length 3
+    powerbot_test.go:28: "node n1 pdu1 3 10.0.0.5": readConfig panicked: runtime error: index out of range [5] with length 5
+    powerbot_test.go:28: "node n1 pdu1 3 10.0.0.5 user": readConfig panicked: runtime error: index out of range [6] with length 6
+    powerbot_test.go:28: "ipmi": readConfig panicked: runtime error: index out of range [1] with length 1
+--- FAIL: TestReadConfigBadLoglevel (0.00s)
+    powerbot_test.go:51: bad loglevel silently dropped the rest of the config with nil error
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/powerbot	0.007s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestReadConfigShortLines (0.00s)
+--- PASS: TestReadConfigValidNodes (0.00s)
+--- PASS: TestReadConfigBadLoglevel (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/powerbot	1.009s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/powerbot	1.007s
+go vet: clean
+gofmt -l: []

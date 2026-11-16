@@ -1,0 +1,27 @@
+# PR branch fix-log-cli @ 749a37ae on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ ./pkg/minilog/ 
+# new/changed tests: TestCLILogMeshSelfKeepsExisting|TestCLILogRingInvalidSize
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+2026/11/16 17:39:20 [33mINFO log_cli_test.go:25: [32mafter log ring 0[0m
+--- FAIL: TestCLILogRingInvalidSize (0.00s)
+    log_cli_test.go:21: log ring 0: expected error
+panic: runtime error: invalid memory address or nil pointer dereference [recovered]
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.034s
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minilog	1.005s [no tests to run]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestCLILogRingInvalidSize (0.00s)
+--- PASS: TestCLILogMeshSelfKeepsExisting (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.037s
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minilog	1.005s [no tests to run]
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.389s
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minilog	1.016s
+go vet: clean
+gofmt -l: []

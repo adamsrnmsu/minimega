@@ -1,0 +1,58 @@
+# PR branch fix-vm-flush @ ea256444 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestVMsFlushAllRemovesVMs|TestVMsFlushErroredBeforeAlias|TestVMsFlushRemovesVMs
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestVMsFlushErroredBeforeAlias (0.00s)
+    vm_test.go:20: flush failed: remove /tmp/TestVMsFlushErroredBeforeAlias4283555073/001/namespaces/ns/uuid-0: no such file or directory
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestVMsFlushErroredBeforeAlias (0.00s)
+--- PASS: TestVMsFlushAllRemovesVMs (0.08s)
+--- PASS: TestVMsFlushRemovesVMs (0.08s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.191s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.523s
+go vet: clean
+gofmt -l: []

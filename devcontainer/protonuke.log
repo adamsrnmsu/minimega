@@ -1,0 +1,32 @@
+# PR branch fix-protonuke @ a771c07f on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/protonuke/ 
+# new/changed tests: TestDNSClientIPv6Target|TestFTPClientIPv6Target|TestIRCClientNoRace|TestIRCGetNickConcurrentWithNickCallback|TestMain
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestDNSClientIPv6Target (3.00s)
+    dns_test.go:33: dnsClient never got an answer from IPv6 target ::1
+--- FAIL: TestFTPClientIPv6Target (3.00s)
+    ftp_test.go:36: ftpClient never connected to IPv6 target ::1
+WARNING: DATA RACE
+WARNING: DATA RACE
+--- FAIL: TestIRCClientNoRace (30.03s)
+    irc_test.go:119: timed out after 30s waiting for the client (connected to ::1) to appear in #a
+WARNING: DATA RACE
+--- FAIL: TestIRCGetNickConcurrentWithNickCallback (0.00s)
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/protonuke	36.036s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestDNSClientIPv6Target (0.00s)
+--- PASS: TestFTPClientIPv6Target (0.00s)
+--- PASS: TestIRCClientNoRace (2.03s)
+--- PASS: TestIRCGetNickConcurrentWithNickCallback (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/protonuke	3.052s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/protonuke	3.068s
+go vet: clean
+gofmt -l: []

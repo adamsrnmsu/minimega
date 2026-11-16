@@ -1,0 +1,21 @@
+# PR branch fix-main @ 10200432 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestSignalAfterShutdownDoesNotPanic|TestSuggestHostnameWithoutMesh
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestSuggestHostnameWithoutMesh (0.00s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered]
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.030s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestSuggestHostnameWithoutMesh (0.00s)
+--- PASS: TestSignalAfterShutdownDoesNotPanic (0.10s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.131s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.499s
+go vet: clean
+gofmt -l: []

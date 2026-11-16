@@ -1,0 +1,30 @@
+# PR branch fix-vnc @ d13f2090 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ ./internal/vnc/ 
+# new/changed tests: TestPauseKeepsRemainingDelay|TestPlaybackStringFailures|TestVNCGetStep
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestVNCGetStep (0.00s)
+    vnc_cli_test.go:85: vnc getstep: unreachable
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.027s
+--- FAIL: TestPauseKeepsRemainingDelay (2.21s)
+    playback_test.go:36: event fired after 2.208737168s, want about 1s
+panic: runtime error: invalid memory address or nil pointer dereference
+FAIL	github.com/sandia-minimega/minimega/v2/internal/vnc	2.221s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestVNCGetStep (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.033s
+--- PASS: TestPauseKeepsRemainingDelay (1.01s)
+--- PASS: TestPlaybackStringFailures (0.30s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/vnc	2.318s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.381s
+ok  	github.com/sandia-minimega/minimega/v2/internal/vnc	2.424s
+go vet: clean
+gofmt -l: []

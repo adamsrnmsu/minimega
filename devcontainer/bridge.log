@@ -1,0 +1,40 @@
+# PR branch fix-bridge @ efe39362 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ ./internal/bridge/ 
+# new/changed tests: TestAddBondInvalidKeepsTaps|TestDestroyTapMirrorDestination|TestParseBondConfigDetails|TestTapCreateIPFailureIsReported
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestTapCreateIPFailureIsReported (0.02s)
+    bridge_cli_test.go:45: expected ip error, got <nil>
+--- FAIL: TestParseBondConfigDetails (0.00s)
+    netconfig_test.go:147: misparsed: 0,1,2,Balance-SLB,Balance-SLB
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.078s
+--- FAIL: TestAddBondInvalidKeepsTaps (0.01s)
+    bond_test.go:44: balance-tcp/off: taps removed from OVS despite error: "del-port br0 tap1"
+    bond_test.go:44: balance-tcp/off: taps removed from OVS despite error: "del-port br0 tap0"
+    bond_test.go:44: Balance-TCP/active: taps removed from OVS despite error: "del-port br0 tap0"
+    bond_test.go:44: Balance-TCP/active: taps removed from OVS despite error: "del-port br0 tap1"
+    bond_test.go:44: bogus/off: taps removed from OVS despite error: "del-port br0 tap0"
+    bond_test.go:44: bogus/off: taps removed from OVS despite error: "del-port br0 tap1"
+--- FAIL: TestDestroyTapMirrorDestination (0.00s)
+    tap_test.go:21: tap was not destroyed (not marked defunct)
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/internal/bridge	0.021s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestTapCreateIPFailureIsReported (0.01s)
+--- PASS: TestParseBondConfigDetails (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.070s
+--- PASS: TestAddBondInvalidKeepsTaps (0.00s)
+--- PASS: TestDestroyTapMirrorDestination (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/bridge	1.016s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.432s
+ok  	github.com/sandia-minimega/minimega/v2/internal/bridge	1.016s
+go vet: clean
+gofmt -l: []

@@ -1,0 +1,76 @@
+
+## log_cli mac-c4a: log ring 0 rejected, logging still works
+Error (lima-phenix): invalid log ring size: 0
+Error (lima-phenix): invalid log ring size: -1
+  minimega alive
+
+## log_cli mac-8yx: log mesh <self> errors and keeps state
+Error (lima-phenix): cannot use self as destination node for mesh logging
+  minimega alive
+
+## vnc mac-c77/mac-8b8: getstep with nothing playing, play missing file
+Error (lima-phenix): kb playback not found for hmi
+  minimega alive
+
+## router mac-pvh: negative interface index rejected (no commit)
+Error (lima-phenix): no such network index: -1
+  minimega alive
+
+## bridge mac-odf: tap create with bad ip reports error and leaves no tap
+Error (lima-phenix): ip error exit status 1: `Error: any valid prefix is expected rather than "300.1.1.1/24".
+`
+  taps named bh-tap0: 0
+
+## shell mac-7ek/mac-f9a: background of a missing binary, then status and clear
+Error (): exec: "/nonexistent-binary": stat /nonexistent-binary: no such file or directory
+lima-phenix: Cleared 0 elements from background-status
+  minimega alive
+
+## disk mac-0e9: disk info recursive on a range image
+
+## kvm mac-lby/mac-3vu: hotplug of a missing file fails and is not recorded; migrate status
+Error (lima-phenix): stat /nonexistent.img: no such file or directory
+  hotplug list: 0
+  minimega alive
+
+## vmconfiger mac-eix/mac-iwp: tag lookup by key in scratch namespace
+lima-phenix: two words
+lima-phenix: role -> two words
+
+## vm-net mac-gui: a bad vm config net keeps the old networks
+Error (lima-phenix): malformed netspec
+  networks now (want [BHA BHB]): lima-phenix: [BHA BHB] 
+
+## ranges mac-ijj: huge range errors fast instead of exhausting memory
+Error (lima-phenix): value of out range: 0-99999999999
+
+real	0m0.084s
+user	0m0.032s
+sys	0m0.020s
+
+## namespace_cli mac-ahe: del-bridge then clear namespace
+Error (lima-phenix): bridge is not associated with namespace
+  bh-probe gone: 0
+  minimega alive
+
+## command_socket mac-w2k / vlans mac-5rp: 100 commands, goroutines stable, vlans table
+  before: lima-phenix | go1.24.13 | 137        | 974
+  after:  lima-phenix | go1.24.13 | 137        | 1026
+host        | alias | vlan
+lima-phenix | ICS   | 103
+lima-phenix | MGMT  | 101
+lima-phenix | SCADA | 102
+## affinity mac-vc4/mac-1m6/mac-nob: pin, check taskset inside the minimega container, unpin
+  minimega cpu 0 -> pid 467's current affinity list: 0
+  minimega cpu 2 -> pid 442's current affinity list: 2
+  minimega cpu 3 -> pid 517's current affinity list: 3
+  minimega cpu 7 -> pid 595's current affinity list: 7
+  minimega cpu 8 -> pid 569's current affinity list: 8
+  after false + clear filter: []
+  unpinned: pid 442's current affinity list: 0-15
+
+## disk mac-0e9: disk info recursive on a VM snapshot (backing chain)
+  image: /phenix/images/lima_waterway_engineer-workstation_snapshot
+host        | image                                                      | format | virtualsize | disksize | backingfile                       | inuse
+lima-phenix | /phenix/images/engineer-arm64.qc2                          | qcow2  | 10.0 GiB    | 2.2 GiB  |                                   | true
+lima-phenix | /phenix/images/lima_waterway_engineer-workstation_snapshot | qcow2  | 10.0 GiB    | 1.4 MiB  | /phenix/images/engineer-arm64.qc2 | true

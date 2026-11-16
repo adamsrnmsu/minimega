@@ -1,0 +1,30 @@
+# PR branch fix-miniplumber @ d61e32d9 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./internal/miniplumber/ 
+# new/changed tests: TestConcurrentTIDsAndPipes|TestHandleMessagesSurvivesUnknownTID
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestHandleMessagesSurvivesUnknownTID (2.00s)
+    miniplumber_test.go:159: message loop died after QUERY_RESPONSE for unknown TID
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+FAIL	github.com/sandia-minimega/minimega/v2/internal/miniplumber	2.019s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestHandleMessagesSurvivesUnknownTID (0.00s)
+--- PASS: TestConcurrentTIDsAndPipes (0.40s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/miniplumber	1.408s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/internal/miniplumber	1.912s
+go vet: clean
+gofmt -l: []

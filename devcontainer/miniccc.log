@@ -1,0 +1,24 @@
+# PR branch fix-miniccc @ 60792591 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/miniccc/ 
+# new/changed tests: TestRunCommandClosesStdinReaderOnExit|TestSendMessageDuringReconnect|TestSendMessageWhileDisconnected
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+cmd/miniccc/client_test.go:41:2: undefined: setEncoder
+cmd/miniccc/client_test.go:50:8: undefined: setEncoder
+cmd/miniccc/client_test.go:64:3: undefined: setEncoder
+cmd/miniccc/client_test.go:65:3: undefined: setEncoder
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/miniccc [build failed]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestSendMessageWhileDisconnected (0.00s)
+--- PASS: TestSendMessageDuringReconnect (0.00s)
+--- PASS: TestRunCommandClosesStdinReaderOnExit (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/miniccc	1.010s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/miniccc	1.071s
+go vet: clean
+gofmt -l: []

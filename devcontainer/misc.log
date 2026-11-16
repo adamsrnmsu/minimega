@@ -1,0 +1,26 @@
+# PR branch fix-misc @ f04381fe on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestDebugCPUStartWhileRunning|TestWget
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestDebugCPUStartWhileRunning (0.20s)
+    misc_cli_test.go:44: rejected start created its output file
+--- FAIL: TestWget (0.00s)
+    misc_test.go:128: expected error for 404
+    misc_test.go:140: /tmp/TestWget1148115970/001/missing left behind
+    misc_test.go:140: /tmp/TestWget1148115970/001/trunc left behind
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.238s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestDebugCPUStartWhileRunning (0.20s)
+--- PASS: TestWget (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.237s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.623s
+go vet: clean
+gofmt -l: []

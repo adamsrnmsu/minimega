@@ -1,0 +1,20 @@
+# PR branch fix-vmbetter @ 6c69c981 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/vmbetter/ 
+# new/changed tests: TestOverlaysMissingNoParents
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestOverlaysMissingNoParents (0.00s)
+panic: runtime error: index out of range [0] with length 0 [recovered]
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/vmbetter	0.006s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestOverlaysMissingNoParents (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/vmbetter	1.005s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/vmbetter	1.012s
+go vet: clean
+gofmt -l: []

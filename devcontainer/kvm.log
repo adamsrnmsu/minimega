@@ -1,0 +1,26 @@
+# PR branch fix-kvm @ 1630e1e1 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestAddNICBadBridgeLeavesNoNIC|TestHotplugDeviceAddFailsRollsBackDrive|TestHotplugDriveAddFails|TestHotplugSuccess|TestQMPConcurrentCommandsGetOwnReplies|TestQueryMigrateOtherStatuses|TestSaveMultiDiskNames
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestQueryMigrateOtherStatuses (0.00s)
+panic: interface conversion: interface {} is nil, not float64 [recovered]
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.039s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestQueryMigrateOtherStatuses (0.01s)
+--- PASS: TestSaveMultiDiskNames (0.00s)
+--- PASS: TestAddNICBadBridgeLeavesNoNIC (0.00s)
+--- PASS: TestHotplugDriveAddFails (0.00s)
+--- PASS: TestHotplugDeviceAddFailsRollsBackDrive (0.00s)
+--- PASS: TestHotplugSuccess (0.00s)
+--- PASS: TestQMPConcurrentCommandsGetOwnReplies (0.07s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.120s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.505s
+go vet: clean
+gofmt -l: []

@@ -1,0 +1,22 @@
+# PR branch fix-dnsmasq @ 2ab06917 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestDnsmasqKillAllRace
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+WARNING: DATA RACE
+WARNING: DATA RACE
+--- FAIL: TestDnsmasqKillAllRace (0.05s)
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.081s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestDnsmasqKillAllRace (0.03s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.060s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.475s
+go vet: clean
+gofmt -l: []

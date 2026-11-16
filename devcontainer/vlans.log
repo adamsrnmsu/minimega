@@ -1,0 +1,21 @@
+# PR branch fix-vlans @ a50a47b7 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./internal/vlans/ 
+# new/changed tests: TestTabularConcurrent
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+FAIL	github.com/sandia-minimega/minimega/v2/internal/vlans	0.009s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestTabularConcurrent (0.04s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/vlans	1.051s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/internal/vlans	1.101s
+go vet: clean
+gofmt -l: []

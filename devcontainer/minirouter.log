@@ -1,0 +1,20 @@
+# PR branch fix-minirouter @ c7abc4aa on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minirouter/ 
+# new/changed tests: TestCommandSocketHandleInvalidLine|TestCommandSocketServeAcceptError
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+cmd/minirouter/socket_test.go:55:3: undefined: commandSocketServe
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minirouter [build failed]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestCommandSocketHandleInvalidLine (0.00s)
+--- PASS: TestCommandSocketServeAcceptError (0.01s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minirouter	1.017s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minirouter	1.017s
+go vet: clean
+gofmt -l: []

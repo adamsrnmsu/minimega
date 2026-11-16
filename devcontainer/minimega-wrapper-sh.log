@@ -1,0 +1,12 @@
+# PR branch fix-minimega-wrapper-sh @ 1db3f8f4 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: none
+# new/changed tests: none
+
+## scripted proof (no Go test: shell wrapper; stub docker prints the exec flags, stdout is a pty)
+### before (master)
+  stdin=/dev/null FLAGS: -it
+  stdin=tty FLAGS: -it
+### after (this PR)
+  stdin=/dev/null FLAGS: -i
+  stdin=tty FLAGS: -it

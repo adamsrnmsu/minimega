@@ -1,0 +1,23 @@
+# PR branch fix-miniweb @ c17fd950 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/miniweb/ 
+# new/changed tests: TestConsoleReapedWhenWebsocketNeverConnects|TestRunRedialsAfterServerDisconnect|TestScreenshotHandlerEarlyReturnKeepsConnectionUsable
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+cmd/miniweb/handlers_test.go:120:40: undefined: consoleAttachTimeout
+cmd/miniweb/handlers_test.go:121:33: undefined: consoleAttachTimeout
+cmd/miniweb/handlers_test.go:122:14: undefined: consoleAttachTimeout
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/miniweb [build failed]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestScreenshotHandlerEarlyReturnKeepsConnectionUsable (0.00s)
+--- PASS: TestRunRedialsAfterServerDisconnect (0.00s)
+--- PASS: TestConsoleReapedWhenWebsocketNeverConnects (0.21s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/miniweb	1.223s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/miniweb	1.300s
+go vet: clean
+gofmt -l: []

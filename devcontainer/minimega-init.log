@@ -1,0 +1,22 @@
+# PR branch fix-minimega-init @ 4da811aa on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: none
+# new/changed tests: none
+
+## scripted proof (no Go test: init script, fake minimega with slow SIGTERM teardown; start, restart, status, then a stale-socket start)
+### before (master)
+  minimega started as process 28
+  minimega stopped
+  minimega started as process 59
+  minimega is running at pid 59.
+  rc=0
+  minimega started as process 59
+  rc=0
+### after (this PR)
+  minimega started as process 128
+  minimega stopped
+  minimega started as process 168
+  minimega is running at pid 168.
+  rc=0
+  minimega did not start
+  rc=1

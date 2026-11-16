@@ -1,0 +1,21 @@
+# PR branch fix-iomeshage @ 4012eaea on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./internal/iomeshage/ 
+# new/changed tests: TestDeleteBaseKeepsDirectory
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestDeleteBaseKeepsDirectory (0.00s)
+    local_test.go:27: base directory was removed: stat /tmp/TestDeleteBaseKeepsDirectory1583807830/001: no such file or directory
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/internal/iomeshage	0.005s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestDeleteBaseKeepsDirectory (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/iomeshage	1.006s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/internal/iomeshage	1.007s
+go vet: clean
+gofmt -l: []

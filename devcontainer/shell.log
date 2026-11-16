@@ -1,0 +1,21 @@
+# PR branch fix-shell @ bba340d2 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestBackgroundClearRace|TestBackgroundStatusUnstartableCommand
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestBackgroundStatusUnstartableCommand (0.00s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered]
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.034s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestBackgroundStatusUnstartableCommand (0.00s)
+--- PASS: TestBackgroundClearRace (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.035s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.385s
+go vet: clean
+gofmt -l: []

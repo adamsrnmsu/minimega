@@ -1,0 +1,21 @@
+# PR branch fix-namespace-cli @ 6f1a8d8f on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestNamespaceDelBridgeUntracksBridge
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestNamespaceDelBridgeUntracksBridge (0.00s)
+    namespace_cli_test.go:24: bridge still tracked after del-bridge
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.026s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestNamespaceDelBridgeUntracksBridge (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.028s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.398s
+go vet: clean
+gofmt -l: []

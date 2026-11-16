@@ -1,0 +1,7 @@
+build=0
+vet=0
+gofmt=[]
+test.bash run1=0
+test.bash run2=0
+test.bash run3=0
+test.bash run4=0

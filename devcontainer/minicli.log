@@ -1,0 +1,21 @@
+# PR branch fix-minicli @ 02227aa9 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./pkg/minicli/ 
+# new/changed tests: TestCompileCommentRecorded
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestCompileCommentRecorded (0.00s)
+    minicli_test.go:300: got history "", want "# configure rack 3"
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/pkg/minicli	0.005s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestCompileCommentRecorded (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minicli	1.006s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minicli	1.016s
+go vet: clean
+gofmt -l: []

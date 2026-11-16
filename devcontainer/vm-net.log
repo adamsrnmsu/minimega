@@ -1,0 +1,32 @@
+# PR branch fix-vm-net @ 1c5f8108 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/minimega/ 
+# new/changed tests: TestVMCdromEjectReportsError|TestVMConfigParseFailureKeepsExistingConfig|TestVMNetAddParseFailureKeepsVMConfigNetworks|TestVMNetAddReportsFirstNICFailure
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+--- FAIL: TestVMNetAddParseFailureKeepsVMConfigNetworks (0.00s)
+    namespace_test.go:25: vm config networks = 0 entries after failed vm net add, want 2
+--- FAIL: TestVMConfigParseFailureKeepsExistingConfig (0.00s)
+    namespace_test.go:53: vm config net: 0 entries after failed parse, want the existing 1
+    namespace_test.go:53: vm config bonds: 0 entries after failed parse, want the existing 1
+    namespace_test.go:53: vm config disk: 0 entries after failed parse, want the existing 1
+--- FAIL: TestVMCdromEjectReportsError (0.00s)
+    vm_cli_test.go:23: eject on VM with no cdrom: err = <nil>, want "no cdrom inserted"
+--- FAIL: TestVMNetAddReportsFirstNICFailure (0.00s)
+    vm_cli_test.go:54: err = <nil>, want first nic failed
+FAIL
+FAIL	github.com/sandia-minimega/minimega/v2/cmd/minimega	0.029s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestVMNetAddParseFailureKeepsVMConfigNetworks (0.00s)
+--- PASS: TestVMConfigParseFailureKeepsExistingConfig (0.00s)
+--- PASS: TestVMCdromEjectReportsError (0.00s)
+--- PASS: TestVMNetAddReportsFirstNICFailure (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.034s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/cmd/minimega	1.384s
+go vet: clean
+gofmt -l: []

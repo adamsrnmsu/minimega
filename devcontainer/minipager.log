@@ -1,0 +1,21 @@
+# PR branch fix-minipager @ 67dc7ad6 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./pkg/minipager/ 
+# new/changed tests: TestRunPagerMissingFallsBack|TestRunPagerWithArgs
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+pkg/minipager/pager_test.go:23:32: undefined: runPager
+pkg/minipager/pager_test.go:30:32: undefined: runPager
+FAIL	github.com/sandia-minimega/minimega/v2/pkg/minipager [build failed]
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestRunPagerWithArgs (0.00s)
+--- PASS: TestRunPagerMissingFallsBack (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minipager	1.007s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/pkg/minipager	1.007s
+go vet: clean
+gofmt -l: []

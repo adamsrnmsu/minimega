@@ -1,0 +1,27 @@
+# PR branch fix-gonetflow @ 8f559295 on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./internal/gonetflow/ 
+# new/changed tests: TestRawPacketsNotAliased|TestWriterChurnWhileReceiving
+
+## 1. fail-before: new tests with the fix reverted (non-test files restored to master)
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+panic: send on closed channel
+FAIL	github.com/sandia-minimega/minimega/v2/internal/gonetflow	0.014s
+FAIL
+
+## 2. pass-after: new tests with the fix
+--- PASS: TestWriterChurnWhileReceiving (0.54s)
+--- PASS: TestRawPacketsNotAliased (0.00s)
+PASS
+ok  	github.com/sandia-minimega/minimega/v2/internal/gonetflow	1.546s
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+ok  	github.com/sandia-minimega/minimega/v2/internal/gonetflow	1.543s
+go vet: clean
+gofmt -l: []

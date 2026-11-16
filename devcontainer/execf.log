@@ -1,0 +1,16 @@
+# PR branch fix-execf @ 1515212a on master 2b6de814
+# dev container: go version go1.24.13 linux/arm64 aarch64, image from .devcontainer/Dockerfile
+# packages: ./cmd/plumbing/execf/ 
+# new/changed tests: none
+
+## 3. touched packages: go test -race -shuffle=on, go vet, gofmt
+go vet: clean
+gofmt -l: []
+
+
+## scripted proof (no Go test: main package that scripts/test.bash does not run)
+### before (master): echo 100% | execf "echo %s"
+  100%!
+  (MISSING)
+### after (this PR)
+  100%
